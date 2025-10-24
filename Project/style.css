@@ -41,6 +41,12 @@ h1 {
   max-width: 600px;
 }
 
+.shop h2 {
+  cursor: pointer;
+  color: #00ffcc;
+  text-shadow: 0 0 5px #00ffcc;
+}
+
 .item {
   margin-bottom: 15px;
   display: flex;
