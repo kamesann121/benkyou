@@ -2,24 +2,24 @@
 <html lang="ja">
 <head>
   <meta charset="UTF-8">
-  <title>洞窟資源調査システム</title>
+  <title>地下資源採取シミュレーター</title>
   <link rel="stylesheet" href="style.css">
 </head>
 <body>
-  <div class="cave-container">
-    <h1>洞窟資源調査へようこそ</h1>
-    <p>採取量: <span id="mineral-count">0</span></p>
-    <img src="assets/images/emerald.png" alt="鉱石" id="mineral" />
+  <div class="lab-container">
+    <h1>地下資源採取実験</h1>
+    <p>採取量（単位）: <span id="resource-count">0</span></p>
+    <img src="assets/images/mineral.png" alt="資源" id="resource" />
   </div>
 
-  <div class="toolbox">
-    <h2 onclick="toggleToolbox()">🧰 調査ツール一覧（クリックで開閉）</h2>
-    <div id="tool-items" style="display: none;"></div>
+  <div class="module">
+    <h2 onclick="toggleModule()">📚 調査支援モジュール（クリックで開閉）</h2>
+    <div id="module-items" style="display: none;"></div>
   </div>
 
   <div class="chat">
-    <h2>研究者チャット</h2>
-    <input id="username" placeholder="名前を入力..." />
+    <h2>研究者間コミュニケーション</h2>
+    <input id="username" placeholder="氏名を入力..." />
     <select id="avatar">
       <option value="🧪">🧪</option>
       <option value="🔬">🔬</option>
