@@ -1,0 +1,34 @@
+/* style.css */
+body {
+  margin: 0;
+  padding: 0;
+  background-color: #1a1a1a; /* 洞窟の暗さ */
+  color: #e0e0e0;
+  font-family: 'Segoe UI', sans-serif;
+  text-align: center;
+}
+
+.cave-container {
+  padding-top: 50px;
+}
+
+h1 {
+  font-size: 2em;
+  color: #00ffcc; /* 神秘的な色味 */
+  text-shadow: 0 0 10px #00ffcc;
+}
+
+#emerald-count {
+  font-weight: bold;
+  color: #00ff66;
+}
+
+#emerald {
+  width: 150px;
+  cursor: pointer;
+  transition: transform 0.1s;
+}
+
+#emerald:active {
+  transform: scale(0.95);
+}
