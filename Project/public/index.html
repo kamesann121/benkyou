@@ -2,30 +2,30 @@
 <html lang="ja">
 <head>
   <meta charset="UTF-8">
-  <title>勉強</title>
+  <title>洞窟資源調査システム</title>
   <link rel="stylesheet" href="style.css">
 </head>
 <body>
   <div class="cave-container">
-    <h1>洞窟探検へようこそ</h1>
-    <p>エメラルド: <span id="emerald-count">0</span></p>
-    <img src="assets/images/emerald.png" alt="エメラルド" id="emerald" />
+    <h1>洞窟資源調査へようこそ</h1>
+    <p>採取量: <span id="mineral-count">0</span></p>
+    <img src="assets/images/emerald.png" alt="鉱石" id="mineral" />
   </div>
 
-  <div class="shop">
-    <h2 onclick="toggleShop()">🛒 洞窟ショップ（クリックで開閉）</h2>
-    <div id="shop-items" style="display: none;"></div>
+  <div class="toolbox">
+    <h2 onclick="toggleToolbox()">🧰 調査ツール一覧（クリックで開閉）</h2>
+    <div id="tool-items" style="display: none;"></div>
   </div>
 
   <div class="chat">
-    <h2>洞窟チャット</h2>
+    <h2>研究者チャット</h2>
     <input id="username" placeholder="名前を入力..." />
     <select id="avatar">
-      <option value="🧙‍♂️">🧙‍♂️</option>
-      <option value="🧝‍♀️">🧝‍♀️</option>
-      <option value="🧟‍♂️">🧟‍♂️</option>
-      <option value="🧌">🧌</option>
+      <option value="🧪">🧪</option>
+      <option value="🔬">🔬</option>
+      <option value="🧬">🧬</option>
       <option value="💧">💧</option>
+      <option value="🪨">🪨</option>
     </select>
     <ul id="messages"></ul>
     <form id="chat-form">
