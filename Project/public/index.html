@@ -1,9 +1,40 @@
-<div class="chat">
-  <h2>洞窟チャット</h2>
-  <ul id="messages"></ul>
-  <form id="chat-form">
-    <input id="chat-input" autocomplete="off" placeholder="メッセージを入力..." />
-    <button>送信</button>
-  </form>
-</div>
-<script src="/socket.io/socket.io.js"></script>
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+  <meta charset="UTF-8">
+  <title>洞窟クリック探検</title>
+  <link rel="stylesheet" href="style.css">
+</head>
+<body>
+  <div class="cave-container">
+    <h1>洞窟探検へようこそ</h1>
+    <p>エメラルド: <span id="emerald-count">0</span></p>
+    <img src="assets/images/emerald.png" alt="エメラルド" id="emerald" />
+  </div>
+
+  <div class="shop">
+    <h2 onclick="toggleShop()">🛒 洞窟ショップ（クリックで開閉）</h2>
+    <div id="shop-items" style="display: none;"></div>
+  </div>
+
+  <div class="chat">
+    <h2>洞窟チャット</h2>
+    <input id="username" placeholder="名前を入力..." />
+    <select id="avatar">
+      <option value="🧙‍♂️">🧙‍♂️</option>
+      <option value="🧝‍♀️">🧝‍♀️</option>
+      <option value="🧟‍♂️">🧟‍♂️</option>
+      <option value="🧌">🧌</option>
+      <option value="💧">💧</option>
+    </select>
+    <ul id="messages"></ul>
+    <form id="chat-form">
+      <input id="chat-input" autocomplete="off" placeholder="メッセージを入力..." />
+      <button>送信</button>
+    </form>
+  </div>
+
+  <script src="/socket.io/socket.io.js"></script>
+  <script src="script.js"></script>
+</body>
+</html>
