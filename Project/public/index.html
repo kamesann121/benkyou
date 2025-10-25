@@ -17,6 +17,23 @@
     <div id="shop-items" style="display: none;"></div>
   </div>
 
+  <div class="chat">
+    <h2>研究者間コミュニケーション</h2>
+    <input id="username" placeholder="氏名を入力..." />
+    <select id="avatar">
+      <option value="🧪">🧪</option>
+      <option value="🔬">🔬</option>
+      <option value="🧬">🧬</option>
+      <option value="💧">💧</option>
+      <option value="🪨">🪨</option>
+    </select>
+    <ul id="messages"></ul>
+    <form id="chat-form">
+      <input id="chat-input" autocomplete="off" placeholder="メッッセージを入力..." />
+      <button>送信</button>
+    </form>
+  </div>
+
   <script src="/socket.io/socket.io.js"></script>
   <script src="script.js"></script>
 </body>
