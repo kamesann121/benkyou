@@ -6,39 +6,27 @@
   <link rel="stylesheet" href="style.css">
 </head>
 <body>
-  <header>
-    <h1>地下資源採取ラボ</h1>
-    <p>採取量: <span id="emerald-count">0</span></p>
-  </header>
+  <main class="hud-layout">
+    <section class="shop">
+      <h2 onclick="toggleShop()">🛠️ モジュール</h2>
+      <div id="shop-items" style="display: none;"></div>
+    </section>
 
-  <main>
     <div class="click-area">
       <img src="assets/images/mineral.png" alt="資源" id="emerald" />
+      <p>採取量: <span id="emerald-count">0</span></p>
     </div>
 
-    <div class="panels">
-      <section class="shop">
-        <h2 onclick="toggleShop()">🛠️ モジュール</h2>
-        <div id="shop-items" style="display: none;"></div>
-      </section>
-
-      <section class="chat">
-        <h2>💬 チャット</h2>
-        <input id="username" placeholder="名前" />
-        <select id="avatar">
-          <option value="🧪">🧪</option>
-          <option value="🔬">🔬</option>
-          <option value="🧬">🧬</option>
-          <option value="💧">💧</option>
-          <option value="🪨">🪨</option>
-        </select>
-        <ul id="messages"></ul>
-        <form id="chat-form">
-          <input id="chat-input" autocomplete="off" placeholder="メッセージ..." />
-          <button>送信</button>
-        </form>
-      </section>
-    </div>
+    <section class="chat">
+      <h2>💬 チャット</h2>
+      <input id="username" placeholder="名前" />
+      <input type="file" id="avatar-upload" accept="image/*" />
+      <ul id="messages"></ul>
+      <form id="chat-form">
+        <input id="chat-input" autocomplete="off" placeholder="メッセージ..." />
+        <button>送信</button>
+      </form>
+    </section>
   </main>
 
   <script src="/socket.io/socket.io.js"></script>
