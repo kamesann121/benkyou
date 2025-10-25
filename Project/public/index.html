@@ -6,32 +6,15 @@
   <link rel="stylesheet" href="style.css">
 </head>
 <body>
-  <div class="lab-container">
+  <div class="cave-container">
     <h1>地下資源採取実験</h1>
-    <p>採取量（単位）: <span id="resource-count">0</span></p>
-    <img src="assets/images/mineral.png" alt="資源" id="resource" />
+    <p>採取量（単位）: <span id="emerald-count">0</span></p>
+    <img src="assets/images/mineral.png" alt="資源" id="emerald" />
   </div>
 
-  <div class="module">
-    <h2 onclick="toggleModule()">📚 調査支援モジュール（クリックで開閉）</h2>
-    <div id="module-items" style="display: none;"></div>
-  </div>
-
-  <div class="chat">
-    <h2>研究者間コミュニケーション</h2>
-    <input id="username" placeholder="氏名を入力..." />
-    <select id="avatar">
-      <option value="🧪">🧪</option>
-      <option value="🔬">🔬</option>
-      <option value="🧬">🧬</option>
-      <option value="💧">💧</option>
-      <option value="🪨">🪨</option>
-    </select>
-    <ul id="messages"></ul>
-    <form id="chat-form">
-      <input id="chat-input" autocomplete="off" placeholder="メッセージを入力..." />
-      <button>送信</button>
-    </form>
+  <div class="shop">
+    <h2 onclick="toggleShop()">📚 調査支援モジュール（クリックで開閉）</h2>
+    <div id="shop-items" style="display: none;"></div>
   </div>
 
   <script src="/socket.io/socket.io.js"></script>
