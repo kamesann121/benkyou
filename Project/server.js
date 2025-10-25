@@ -28,17 +28,27 @@ function saveTotals() {
   }
 }
 
-// --- simple sanitize on server (final defense) ---
+// --- banned list and server-side sanitizer (final defense) ---
 const BANNED = ['game', 'ゲーム', '該当カテゴリ:ゲーム'];
+function escapeForRegex(s) {
+  return s.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+}
 function sanitizeServer(text) {
-  if (!text && text !== 0) return '';
-  let t = String(text);
+  if (text === undefined || text === null) return '';
+  const original = String(text);
+  // Normalize and lowercase to reduce bypass variants
+  let t = original.normalize('NFKC').toLowerCase();
+  // Replace banned whole-word occurrences
   BANNED.forEach(w => {
-    const esc = w.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
-    const re = new RegExp(esc, 'ig');
+    const esc = escapeForRegex(w.normalize('NFKC').toLowerCase());
+    const re = new RegExp('\\b' + esc + '\\b', 'ig');
     t = t.replace(re, '［非表示語］');
   });
-  t = t.replace(/<[^>]*>/g, '').trim();
+  // Strip tags and control characters, trim
+  t = t.replace(/<[^>]*>/g, '').replace(/[\x00-\x1F\x7F]/g, '').trim();
+  if (t !== original) {
+    console.info('sanitizeServer: converted', { original, sanitized: t });
+  }
   return t;
 }
 
@@ -52,7 +62,7 @@ function connectedRanking() {
     .sort((a, b) => (b.held + b.total) - (a.held + a.total));
 }
 
-// optional endpoint for sendBeacon commit
+// optional endpoint for navigator.sendBeacon commits
 app.post('/__commit', (req, res) => {
   try {
     const body = req.body;
@@ -68,8 +78,12 @@ app.post('/__commit', (req, res) => {
     if (id && !isNaN(commit) && commit > 0) {
       totals[id] = (totals[id] || 0) + commit;
       saveTotals();
+      io.emit('total:updated', { id, total: totals[id] });
+      io.emit('ranking:update', connectedRanking());
     }
-  } catch (e) {}
+  } catch (e) {
+    console.error('Error in /__commit', e);
+  }
   res.sendStatus(200);
 });
 
@@ -77,7 +91,8 @@ app.post('/__commit', (req, res) => {
 io.on('connection', (socket) => {
   socket.on('init', (data) => {
     const clientId = data && data.id ? data.id : socket.id;
-    const name = data && data.name ? sanitizeServer(data.name).slice(0, 32) : '研究者';
+    const rawName = data && data.name ? data.name : '研究者';
+    const name = sanitizeServer(rawName).slice(0, 32) || '研究者';
     const avatar = data && data.avatar ? data.avatar : null;
     if (!totals[clientId]) totals[clientId] = 0;
     connected[socket.id] = { id: clientId, name, avatar, held: 0 };
@@ -106,7 +121,6 @@ io.on('connection', (socket) => {
     }
   });
 
-  // purchase deduction event (client requests to deduct from total)
   socket.on('purchase:deduct', (data) => {
     try {
       const id = data && data.id ? data.id : (connected[socket.id] && connected[socket.id].id);
@@ -118,7 +132,9 @@ io.on('connection', (socket) => {
         io.emit('total:updated', { id, total: totals[id] });
         io.emit('ranking:update', connectedRanking());
       }
-    } catch (e) {}
+    } catch (e) {
+      console.error('Error handling purchase:deduct', e);
+    }
   });
 
   socket.on('chat message', (msg) => {
@@ -137,3 +153,4 @@ const PORT = process.env.PORT || 3000;
 http.listen(PORT, () => {
   console.log(`Server running on port ${PORT}`);
 });
+```
