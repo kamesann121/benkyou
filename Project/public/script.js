@@ -46,3 +46,47 @@ function toggleShop() {
   shopItemsContainer.style.display =
     shopItemsContainer.style.display === 'none' ? 'block' : 'none';
 }
+
+// チャット機能
+const socket = io();
+
+const form = document.getElementById('chat-form');
+const input = document.getElementById('chat-input');
+const messages = document.getElementById('messages');
+
+form.addEventListener('submit', (e) => {
+  e.preventDefault();
+  const name = document.getElementById('username').value || '研究者';
+  const icon = document.getElementById('avatar').value || '💧';
+  const text = input.value;
+  if (text) {
+    socket.emit('chat message', { name, icon, text });
+    input.value = '';
+  }
+});
+
+socket.on('chat message', (msg) => {
+  const li = document.createElement('li');
+  li.className = 'message';
+
+  const avatar = document.createElement('div');
+  avatar.className = 'avatar';
+  avatar.textContent = msg.icon;
+
+  const bubble = document.createElement('div');
+  bubble.className = 'bubble';
+
+  const nickname = document.createElement('div');
+  nickname.className = 'nickname';
+  nickname.textContent = msg.name;
+
+  const text = document.createElement('div');
+  text.textContent = msg.text;
+
+  bubble.appendChild(nickname);
+  bubble.appendChild(text);
+
+  li.appendChild(avatar);
+  li.appendChild(bubble);
+  messages.appendChild(li);
+});
