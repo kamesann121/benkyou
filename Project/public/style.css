@@ -6,61 +6,22 @@ body {
   font-family: 'Segoe UI', sans-serif;
 }
 
-header {
-  text-align: center;
-  padding: 20px;
-  background-color: #1a1a1a;
-  box-shadow: 0 0 10px #00ffcc;
-}
-
-h1 {
-  font-size: 2.5em;
-  color: #00ffcc;
-  text-shadow: 0 0 15px #00ffcc;
-}
-
-#emerald-count {
-  font-weight: bold;
-  color: #00ff66;
-  font-size: 1.2em;
-}
-
-main {
+.hud-layout {
   display: flex;
-  flex-direction: column;
-  align-items: center;
-}
-
-.click-area {
-  margin: 30px 0;
-}
-
-#emerald {
-  width: 120px;
-  cursor: pointer;
-  transition: transform 0.1s;
-}
-
-#emerald:active {
-  transform: scale(0.95);
-}
-
-.panels {
-  display: flex;
-  gap: 40px;
-  justify-content: center;
+  justify-content: space-between;
+  align-items: flex-start;
+  gap: 30px;
+  padding: 30px;
   flex-wrap: wrap;
-  width: 90%;
-  max-width: 1000px;
 }
 
 .shop, .chat {
+  flex: 1 1 300px;
   background-color: #1a1a1a;
   padding: 20px;
   border-radius: 12px;
   box-shadow: 0 0 15px rgba(0,255,204,0.3);
-  width: 100%;
-  max-width: 450px;
+  max-width: 400px;
 }
 
 .shop h2, .chat h2 {
@@ -89,10 +50,31 @@ button:hover {
   background-color: #00cc88;
 }
 
+.click-area {
+  flex: 0 1 200px;
+  text-align: center;
+}
+
+.click-area img {
+  width: 120px;
+  cursor: pointer;
+  transition: transform 0.1s;
+}
+
+.click-area img:active {
+  transform: scale(0.95);
+}
+
+.click-area p {
+  margin-top: 10px;
+  font-size: 1.2em;
+  color: #00ff66;
+}
+
 #messages {
   list-style: none;
   padding: 0;
-  max-height: 200px;
+  max-height: 250px;
   overflow-y: auto;
   margin-bottom: 10px;
 }
@@ -100,12 +82,30 @@ button:hover {
 .message {
   display: flex;
   align-items: flex-start;
-  margin-bottom: 12px;
+  margin-bottom: 16px;
 }
 
-.avatar {
-  font-size: 24px;
+.message-left {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
   margin-right: 10px;
+  width: 50px;
+}
+
+.nickname {
+  font-size: 0.8em;
+  color: #00ffcc;
+  margin-bottom: 4px;
+  text-align: center;
+  word-break: break-word;
+}
+
+.avatar-img {
+  width: 40px;
+  height: 40px;
+  border-radius: 50%;
+  object-fit: cover;
 }
 
 .bubble {
@@ -129,9 +129,4 @@ button:hover {
   height: 0;
   border: 8px solid transparent;
   border-right-color: #00aa66;
-}
-
-.nickname {
-  font-weight: bold;
-  margin-bottom: 4px;
 }
