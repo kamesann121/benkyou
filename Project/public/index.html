@@ -1,32 +1,45 @@
 <!DOCTYPE html>
 <html lang="ja">
 <head>
-  <meta charset="UTF-8">
+  <meta charset="UTF-8" />
   <title>地下資源採取ラボ</title>
-  <link rel="stylesheet" href="style.css">
+  <link rel="stylesheet" href="style.css" />
 </head>
 <body>
+  <header class="site-header">
+    <h1>地下資源採取ラボ</h1>
+    <div class="header-stats">採取量: <span id="emerald-count">0</span> <span class="eme-label">エメ</span></div>
+  </header>
+
   <main class="hud-layout">
-    <section class="shop">
-      <h2 onclick="toggleShop()">🛠️ モジュール</h2>
-      <div id="shop-items" style="display: none;"></div>
-    </section>
+    <aside class="shop">
+      <button id="toggle-shop" class="module-btn">🛠️ モジュール</button>
+      <div id="shop-panel" class="shop-panel">
+        <div id="shop-items" class="shop-items"></div>
+      </div>
+    </aside>
 
-    <div class="click-area">
+    <section class="click-area">
       <img src="assets/images/mineral.png" alt="資源" id="emerald" />
-      <p>採取量: <span id="emerald-count">0</span></p>
-    </div>
-
-    <section class="chat">
-      <h2>💬 チャット</h2>
-      <input id="username" placeholder="名前" />
-      <input type="file" id="avatar-upload" accept="image/*" />
-      <ul id="messages"></ul>
-      <form id="chat-form">
-        <input id="chat-input" autocomplete="off" placeholder="メッセージ..." />
-        <button>送信</button>
-      </form>
+      <p class="count-line">現在の採取量: <span id="emerald-count-dup">0</span> <span class="eme-label">エメ</span></p>
     </section>
+
+    <aside class="chat">
+      <h2 class="chat-title">💬 チャット</h2>
+      <div class="chat-controls">
+        <input id="username" placeholder="名前" />
+        <input type="file" id="avatar-upload" accept="image/*" />
+      </div>
+
+      <div id="chat-window" class="chat-window">
+        <ul id="messages" class="messages"></ul>
+      </div>
+
+      <form id="chat-form" class="chat-form">
+        <input id="chat-input" autocomplete="off" placeholder="メッセージ..." />
+        <button type="submit">送信</button>
+      </form>
+    </aside>
   </main>
 
   <script src="/socket.io/socket.io.js"></script>
