@@ -145,4 +145,15 @@ body{
   .click-area{order:1}
   .shop{order:0}
   .chat{order:2}
+
+  /* ranking */
+.ranking-panel{margin-top:12px;background:linear-gradient(180deg, rgba(255,255,255,0.01), rgba(0,0,0,0.04));padding:10px;border-radius:10px}
+.ranking-panel h3{margin:0 0 8px 0;color:var(--neon);font-size:0.95rem}
+.ranking-list{list-style:none;padding:0;margin:0;display:flex;flex-direction:column;gap:8px}
+.ranking-item{display:flex;align-items:center;gap:8px;padding:6px;border-radius:8px;background:rgba(255,255,255,0.01);border:1px solid rgba(255,255,255,0.02)}
+.ranking-item .r-avatar{width:36px;height:36px;border-radius:50%;object-fit:cover}
+.ranking-item .r-name{color:var(--neon);font-weight:700;font-size:0.9rem}
+.ranking-item .r-stats{margin-left:auto;text-align:right;font-size:0.85rem;color:var(--muted)}
+.label.small{font-size:0.85rem;color:#cfeee0;margin-top:6px}
+.counts{margin-bottom:10px}
 }
