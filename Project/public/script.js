@@ -1,15 +1,14 @@
-// public/script.js — 修正版（このファイルで上書きしてください）
-
+// public/script.js
 document.addEventListener('DOMContentLoaded', () => {
-  // --- 永続/表示用の値 ---
-  let heldEm = 0;       // 現在の所持エメ（手持ち）
-  let totalEm = 0;      // 総合エメ（サーバー永続／累計）
+  // --- state ---
+  let heldEm = 0;
+  let totalEm = 0;
   let uploadedAvatar = null;
-  let clientId = null;  // 永続ID（localStorageで保持）
+  let clientId = null;
 
   const socket = io();
 
-  // --- DOM 要素 ---
+  // --- DOM ---
   const emerald = document.getElementById('emerald');
   const heldDisplay = document.getElementById('held-em') || document.getElementById('emerald-count');
   const totalDisplay = document.getElementById('total-em');
@@ -26,12 +25,24 @@ document.addEventListener('DOMContentLoaded', () => {
   const toggleShopBtn = document.getElementById('toggle-shop');
   const shopPanel = document.getElementById('shop-panel');
 
-  // --- localStorage から clientId を読み出し（あれば） ---
   if (localStorage.getItem('lab_client_id')) {
     clientId = localStorage.getItem('lab_client_id');
   }
 
-  // --- ユーティリティ ---
+  // --- client-side sanitize (pre-send) ---
+  const BANNED = ['game', 'ゲーム', '該当カテゴリ:ゲーム'];
+  function sanitizeOutgoing(text) {
+    if (!text && text !== 0) return '';
+    let t = String(text);
+    BANNED.forEach(w => {
+      const esc = w.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+      const re = new RegExp(esc, 'ig');
+      t = t.replace(re, '［非表示語］');
+    });
+    t = t.replace(/<[^>]*>/g, '').trim();
+    return t;
+  }
+
   function escapeHtml(str) {
     return String(str).replace(/[&<>"']/g, (s) => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[s]));
   }
@@ -41,11 +52,8 @@ document.addEventListener('DOMContentLoaded', () => {
     if (totalDisplay) totalDisplay.textContent = totalEm;
     if (totalDup) totalDup.textContent = totalEm;
   }
-
-  // --- 初期表示 ---
   updateDisplays();
 
-  // --- 初期化ハンドシェイク ---
   function sendInit() {
     socket.emit('init', {
       id: clientId,
@@ -55,7 +63,6 @@ document.addEventListener('DOMContentLoaded', () => {
   }
   sendInit();
 
-  // サーバー応答：初期 ack（確定 id と保存総合値を受け取る）
   socket.on('init:ack', (data) => {
     if (data && data.id) {
       clientId = data.id;
@@ -67,7 +74,6 @@ document.addEventListener('DOMContentLoaded', () => {
     }
   });
 
-  // サーバーからの総合値更新（自分の id に対する更新）
   socket.on('total:updated', (data) => {
     if (!data || !data.id) return;
     if (data.id === clientId) {
@@ -76,35 +82,25 @@ document.addEventListener('DOMContentLoaded', () => {
     }
   });
 
-  // ランキング更新（接続中ユーザーのみ）
   socket.on('ranking:update', (list) => {
     renderRanking(list);
   });
 
-  // --- クリック（採取）: 手持ちに加算しサーバーに held:update を通知 ---
+  // --- click to collect (held) ---
   if (emerald) {
     emerald.addEventListener('click', () => {
       heldEm += 1;
       updateDisplays();
-      // サーバーに現在の held を伝えてライブランキングに反映
       socket.emit('held:update', heldEm);
-      // 簡易エフェクト
-      emerald.animate([{ transform: 'scale(1)' }, { transform: 'scale(1.03)' }, { transform: 'scale(1)' }], { duration: 180 });
+      emerald.animate([{ transform: 'scale(1)' }, { transform: 'scale(1.03)' }, { transform: 'scale(1)' }], { duration: 160 });
     });
   }
 
-  // --- 自動コミット：ページ離脱時に手持ちをサーバーへコミット（可能なら sendBeacon） ---
-  function commitHeldToServer() {
-    if (heldEm <= 0) return;
-    socket.emit('commit:held', heldEm);
-    heldEm = 0;
-    updateDisplays();
-    socket.emit('held:update', 0);
-  }
+  // --- auto commit on unload ---
   window.addEventListener('beforeunload', () => {
     try {
-      const payload = JSON.stringify({ id: clientId, commit: heldEm });
       if (heldEm > 0 && navigator.sendBeacon) {
+        const payload = JSON.stringify({ id: clientId, commit: heldEm });
         navigator.sendBeacon('/__commit', payload);
         socket.emit('commit:held', heldEm);
       } else if (heldEm > 0) {
@@ -113,7 +109,7 @@ document.addEventListener('DOMContentLoaded', () => {
     } catch (e) {}
   });
 
-  // --- アイテム一覧（30個：具体名＋高め価格スケール） ---
+  // --- shop items ---
   const predefinedNames = [
     "基礎ドリルI","基礎ドリルII","センサーA","センサーB","自動旋盤",
     "採取アーム","冷却ユニット","精製モジュール","フィルター","安定化器",
@@ -122,27 +118,13 @@ document.addEventListener('DOMContentLoaded', () => {
     "レーザー強化","エネルギー収束器","超伝導配線","高精度センサー","再生ユニット",
     "遠隔制御モジュール","保護シールド","ナビゲーションPX","レア検出器","最適化プロファイル"
   ];
-
-  // 価格を高めにスケール
   const items = predefinedNames.map((name, i) => {
     const base = 500;
     const cost = Math.floor(base * Math.pow(1.65, i));
-    return {
-      id: i+1,
-      name,
-      cost,
-      label: `${cost}エメ`,
-      effect: () => { emeraldPerClickIncrease(i); }
-    };
+    return { id: i+1, name, cost, label: `${cost}エメ`, effect: () => { const inc = Math.max(1, Math.floor((i+1)/5)); socket.emit('chat message', { name: 'システム', text: sanitizeOutgoing(`導入効果: 効率 +${inc}`), avatar: null }); } };
   });
 
-  function emeraldPerClickIncrease(index) {
-    const inc = Math.max(1, Math.floor((index + 1) / 5));
-    socket.emit('chat message', { name: 'システム', text: `導入効果: 採取効率 +${inc}`, avatar: null });
-  }
-
-  // --- ショップ描画 ---
-  function renderShop(){
+  function renderShop() {
     if (!shopItemsContainer) return;
     shopItemsContainer.innerHTML = '';
     items.forEach((it, idx) => {
@@ -151,7 +133,7 @@ document.addEventListener('DOMContentLoaded', () => {
       div.innerHTML = `
         <div class="label">${escapeHtml(it.name)}</div>
         <div style="display:flex;align-items:center;gap:10px">
-          <div class="price">${it.label}</div>
+          <div class="price">${escapeHtml(it.label)}</div>
           <button class="buy-btn" data-idx="${idx}">購入</button>
         </div>
       `;
@@ -160,7 +142,7 @@ document.addEventListener('DOMContentLoaded', () => {
   }
   renderShop();
 
-  // --- 購入処理（総合エメを消費） ---
+  // --- purchase handling (uses totalEm) ---
   document.addEventListener('click', (e) => {
     const btn = e.target.closest && e.target.closest('.buy-btn');
     if (!btn) return;
@@ -174,20 +156,15 @@ document.addEventListener('DOMContentLoaded', () => {
       btn.textContent = '導入済';
       btn.disabled = true;
       btn.style.opacity = '0.7';
-      btn.animate([{ transform:'scale(1)' }, { transform:'scale(1.06)' }, { transform:'scale(1)' }], { duration:220 });
-      // サーバー側で累計を減らす処理があるなら専用イベントを呼ぶ（ここでは purchase:deduct を送る）
+      btn.animate([{ transform:'scale(1)' }, { transform:'scale(1.06)' }, { transform:'scale(1)' }], { duration:200 });
       socket.emit('purchase:deduct', { id: clientId, amount: item.cost });
-      socket.emit('chat message', {
-        name: 'システム',
-        text: `${item.name} を ${item.label} で購入しました`,
-        avatar: null
-      });
+      socket.emit('chat message', { name: 'システム', text: sanitizeOutgoing(`${item.name} を購入しました`), avatar: null });
     } else {
-      btn.animate([{ transform:'translateY(0)' }, { transform:'translateY(-6px)' }, { transform:'translateY(0)' }], { duration:260 });
+      btn.animate([{ transform:'translateY(0)' }, { transform:'translateY(-6px)' }, { transform:'translateY(0)' }], { duration:240 });
     }
   });
 
-  // --- モジュールボタン（開閉） ---
+  // --- toggle shop ---
   if (toggleShopBtn && shopPanel) {
     toggleShopBtn.addEventListener('click', () => {
       const open = shopPanel.classList.toggle('open');
@@ -196,7 +173,7 @@ document.addEventListener('DOMContentLoaded', () => {
     });
   }
 
-  // --- アバターアップロード＆プレビュー ---
+  // --- avatar upload & preview ---
   if (avatarUpload) {
     avatarUpload.addEventListener('change', (e) => {
       const file = e.target.files[0];
@@ -211,7 +188,7 @@ document.addEventListener('DOMContentLoaded', () => {
     });
   }
 
-  // --- ニックネームプレビュー ---
+  // --- nickname preview ---
   if (usernameInput) {
     usernameInput.addEventListener('input', () => {
       const v = usernameInput.value.trim() || '研究者';
@@ -220,25 +197,24 @@ document.addEventListener('DOMContentLoaded', () => {
     });
   }
 
-  // --- チャット送信 ---
+  // --- chat send (sanitize before sending) ---
   if (form) {
     form.addEventListener('submit', (e) => {
       e.preventDefault();
       const name = (usernameInput && usernameInput.value.trim() ? usernameInput.value.trim() : (previewName ? previewName.textContent : '研究者')).slice(0,16);
-      const text = input && input.value.trim();
-      if (!text) return;
-      // フィルタ回避：メッセージ先頭にカテゴリ情報や危険語を含めない
-      socket.emit('chat message', { name, text, avatar: uploadedAvatar || null });
+      const raw = input && input.value;
+      const safe = sanitizeOutgoing(raw);
+      if (!safe) return;
+      socket.emit('chat message', { name: sanitizeOutgoing(name), text: safe, avatar: uploadedAvatar || null });
       if (input) input.value = '';
     });
   }
 
-  // --- チャット受信表示（LINE風） ---
+  // --- chat receive ---
   socket.on('chat message', (msg) => {
     if (!messages) return;
     const li = document.createElement('li');
     li.className = 'message';
-
     const left = document.createElement('div');
     left.className = 'message-left';
     const nameDiv = document.createElement('div');
@@ -249,20 +225,17 @@ document.addEventListener('DOMContentLoaded', () => {
     avatar.src = msg.avatar || 'assets/images/default-avatar.png';
     left.appendChild(nameDiv);
     left.appendChild(avatar);
-
     const bubble = document.createElement('div');
     bubble.className = 'bubble';
     bubble.textContent = msg.text;
-
     li.appendChild(left);
     li.appendChild(bubble);
     messages.appendChild(li);
-
     const chatWindow = document.getElementById('chat-window');
     chatWindow && chatWindow.scrollTo({ top: chatWindow.scrollHeight, behavior: 'smooth' });
   });
 
-  // --- ランキング描画（接続中ユーザーのみ） ---
+  // --- ranking render ---
   function renderRanking(list) {
     if (!rankingList) return;
     rankingList.innerHTML = '';
@@ -277,21 +250,5 @@ document.addEventListener('DOMContentLoaded', () => {
       rankingList.appendChild(li);
     });
   }
-
-  // --- 互換と初期化 ---
-  let emeraldCount = totalEm; // 互換保持
-  let emeraldPerClick = 1;
-  function syncTotalsFromServer(newTotal) {
-    totalEm = newTotal;
-    emeraldCount = totalEm;
-    updateDisplays();
-  }
-  socket.on('total:sync', (data) => {
-    if (data && typeof data.total === 'number') {
-      syncTotalsFromServer(data.total);
-    }
-  });
-
-  // --- 初期表示更新 ---
-  updateDisplays();
 });
+```
