@@ -36,15 +36,12 @@ function escapeForRegex(s) {
 function sanitizeServer(text) {
   if (text === undefined || text === null) return '';
   const original = String(text);
-  // Normalize and lowercase to reduce bypass variants
   let t = original.normalize('NFKC').toLowerCase();
-  // Replace banned whole-word occurrences
   BANNED.forEach(w => {
     const esc = escapeForRegex(w.normalize('NFKC').toLowerCase());
     const re = new RegExp('\\b' + esc + '\\b', 'ig');
     t = t.replace(re, '［非表示語］');
   });
-  // Strip tags and control characters, trim
   t = t.replace(/<[^>]*>/g, '').replace(/[\x00-\x1F\x7F]/g, '').trim();
   if (t !== original) {
     console.info('sanitizeServer: converted', { original, sanitized: t });
@@ -153,4 +150,3 @@ const PORT = process.env.PORT || 3000;
 http.listen(PORT, () => {
   console.log(`Server running on port ${PORT}`);
 });
-```
