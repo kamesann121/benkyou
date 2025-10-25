@@ -1,4 +1,4 @@
-// --- 初期リソースとUI要素 ---
+// 初期状態
 let emeraldCount = 0;
 let emeraldPerClick = 1;
 let uploadedAvatar = null;
@@ -16,35 +16,47 @@ const input = document.getElementById('chat-input');
 const messages = document.getElementById('messages');
 const avatarUpload = document.getElementById('avatar-upload');
 const usernameInput = document.getElementById('username');
-
-// --- クリックで採取（画像を大きくした） ---
-emerald.addEventListener('click', () => {
-  emeraldCount += emeraldPerClick;
-  updateCounts();
-});
+const avatarPreview = document.getElementById('avatar-preview');
+const previewName = document.getElementById('preview-name');
 
 // 更新表示
 function updateCounts(){
   countDisplay.textContent = emeraldCount;
   countDup.textContent = emeraldCount;
 }
+updateCounts();
 
-// --- ショップ：30アイテムを自動生成（価格表記は「nエメ」） ---
-const items = [];
-for(let i=1;i<=30;i++){
-  // 基本価格を指数的に少し増やす（見た目用に大きめ）
-  const base = 10;
-  const cost = Math.floor(base * Math.pow(1.5, i-1));
-  items.push({
-    id: i,
-    name: `モジュール ${i}`,
+// クリックで採取
+emerald.addEventListener('click', () => {
+  emeraldCount += emeraldPerClick;
+  updateCounts();
+  // 小さなエフェクト
+  emerald.animate([{transform:'scale(1)'},{transform:'scale(1.04)'},{transform:'scale(1)'}],{duration:220});
+});
+
+// アイテム一覧（30個：具体名＋高め価格スケール）
+const predefinedNames = [
+  "基礎ドリルI","基礎ドリルII","センサーA","センサーB","自動旋盤",
+  "採取アーム","冷却ユニット","精製モジュール","フィルター","安定化器",
+  "容量拡張I","容量拡張II","加速ユニット","伸縮アダプタ","防振プレート",
+  "電力コア小","電力コア中","電力コア大","解析モジュール","採取AI",
+  "レーザー強化","エネルギー収束器","超伝導配線","高精度センサー","再生ユニット",
+  "遠隔制御モジュール","保護シールド","ナビゲーションPX","レア検出器","最適化プロファイル"
+];
+
+const items = predefinedNames.map((name, i) => {
+  const base = 50;
+  const cost = Math.floor(base * Math.pow(1.6, i)); // 急速に高くなる
+  return {
+    id: i+1,
+    name,
     cost,
     label: `${cost}エメ`,
-    effect: () => { emeraldPerClick += Math.max(1, Math.floor(i/6)); }
-  });
-}
+    effect: () => { emeraldPerClick += Math.max(1, Math.floor((i+1)/5)); }
+  };
+});
 
-// ショップUI生成
+// ショップ描画
 function renderShop(){
   shopItemsContainer.innerHTML = '';
   items.forEach((it, idx) => {
@@ -72,14 +84,13 @@ shopItemsContainer.addEventListener('click', (e) => {
     emeraldCount -= item.cost;
     item.effect();
     updateCounts();
-    // 軽いUIフィードバック
     btn.textContent = '導入済';
     btn.disabled = true;
     btn.style.opacity = '0.7';
-    // 任意で通知をチャットに流す
+    btn.animate([{transform:'scale(1)'},{transform:'scale(1.06)'},{transform:'scale(1)'}],{duration:220});
     socket.emit('chat message', {
       name: 'システム',
-      text: `${item.name} を導入しました（+${Math.max(1, Math.floor(item.id/6))} 採取）`,
+      text: `${item.name} を導入しました（+${Math.max(1, Math.floor((item.id)/5))} 採取）`,
       avatar: null
     });
   } else {
@@ -88,40 +99,45 @@ shopItemsContainer.addEventListener('click', (e) => {
   }
 });
 
-// --- モジュールボタン：折りたたみ（ボタン化）＋滑らかなモーション ---
+// モジュールボタン（開閉）
 toggleShopBtn.addEventListener('click', () => {
-  shopPanel.classList.toggle('open');
+  const open = shopPanel.classList.toggle('open');
+  shopPanel.setAttribute('aria-hidden', String(!open));
 });
 
-// --- アイコンアップロード（base64で保持） ---
+// アバターアップロード＆プレビュー
 avatarUpload.addEventListener('change', (e) => {
   const file = e.target.files[0];
   if(!file) return;
   const reader = new FileReader();
-  reader.onload = () => { uploadedAvatar = reader.result; };
+  reader.onload = () => {
+    uploadedAvatar = reader.result;
+    avatarPreview.src = uploadedAvatar;
+  };
   reader.readAsDataURL(file);
 });
 
-// --- チャット送信 ---
+// ニックネームプレビュー
+usernameInput.addEventListener('input', () => {
+  const v = usernameInput.value.trim() || '研究者';
+  previewName.textContent = v.length > 16 ? v.slice(0,16) : v;
+});
+
+// チャット送信
 form.addEventListener('submit', (e) => {
   e.preventDefault();
-  const name = usernameInput.value.trim() || '研究者';
+  const name = (usernameInput.value.trim() || '研究者').slice(0,16);
   const text = input.value.trim();
   if(!text) return;
-  socket.emit('chat message', {
-    name,
-    text,
-    avatar: uploadedAvatar || null
-  });
+  socket.emit('chat message', { name, text, avatar: uploadedAvatar || null });
   input.value = '';
 });
 
-// --- 受信してLINE風に追加 ---
+// チャット受信
 socket.on('chat message', (msg) => {
   const li = document.createElement('li');
   li.className = 'message';
 
-  // left: name over avatar
   const left = document.createElement('div');
   left.className = 'message-left';
   const nameDiv = document.createElement('div');
@@ -133,7 +149,6 @@ socket.on('chat message', (msg) => {
   left.appendChild(nameDiv);
   left.appendChild(avatar);
 
-  // bubble
   const bubble = document.createElement('div');
   bubble.className = 'bubble';
   bubble.textContent = msg.text;
