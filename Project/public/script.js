@@ -29,17 +29,22 @@ document.addEventListener('DOMContentLoaded', () => {
     clientId = localStorage.getItem('lab_client_id');
   }
 
-  // --- client-side sanitize (pre-send) ---
+  // --- banned list and sanitizers ---
   const BANNED = ['game', 'ゲーム', '該当カテゴリ:ゲーム'];
+  function escapeForRegex(s) {
+    return s.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+  }
+
+  // client-side sanitize: normalize, lower, replace banned as whole words, strip tags/control chars
   function sanitizeOutgoing(text) {
-    if (!text && text !== 0) return '';
-    let t = String(text);
+    if (text === undefined || text === null) return '';
+    let t = String(text).normalize('NFKC').toLowerCase();
     BANNED.forEach(w => {
-      const esc = w.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
-      const re = new RegExp(esc, 'ig');
+      const esc = escapeForRegex(w.normalize('NFKC').toLowerCase());
+      const re = new RegExp('\\b' + esc + '\\b', 'ig');
       t = t.replace(re, '［非表示語］');
     });
-    t = t.replace(/<[^>]*>/g, '').trim();
+    t = t.replace(/<[^>]*>/g, '').replace(/[\x00-\x1F\x7F]/g, '').trim();
     return t;
   }
 
@@ -54,10 +59,11 @@ document.addEventListener('DOMContentLoaded', () => {
   }
   updateDisplays();
 
+  // --- init / handshake ---
   function sendInit() {
     socket.emit('init', {
       id: clientId,
-      name: usernameInput && usernameInput.value.trim() ? usernameInput.value.trim() : (previewName ? previewName.textContent : '研究者'),
+      name: usernameInput && usernameInput.value.trim() ? sanitizeOutgoing(usernameInput.value.trim()) : (previewName ? sanitizeOutgoing(previewName.textContent) : '研究者'),
       avatar: uploadedAvatar || null
     });
   }
@@ -121,7 +127,17 @@ document.addEventListener('DOMContentLoaded', () => {
   const items = predefinedNames.map((name, i) => {
     const base = 500;
     const cost = Math.floor(base * Math.pow(1.65, i));
-    return { id: i+1, name, cost, label: `${cost}エメ`, effect: () => { const inc = Math.max(1, Math.floor((i+1)/5)); socket.emit('chat message', { name: 'システム', text: sanitizeOutgoing(`導入効果: 効率 +${inc}`), avatar: null }); } };
+    return {
+      id: i+1,
+      name,
+      cost,
+      label: `${cost}エメ`,
+      effect: () => {
+        const inc = Math.max(1, Math.floor((i+1)/5));
+        // safe system message (sanitized)
+        socket.emit('chat message', { name: 'システム', text: sanitizeOutgoing(`導入効果: 効率 +${inc}`), avatar: null });
+      }
+    };
   });
 
   function renderShop() {
@@ -221,8 +237,7 @@ document.addEventListener('DOMContentLoaded', () => {
     nameDiv.className = 'nickname';
     nameDiv.textContent = msg.name || '研究者';
     const avatar = document.createElement('img');
-    avatar.className = 'avatar-img';
-    avatar.src = msg.avatar || 'assets/images/default-avatar.png';
+    avatar.className = 'avatar-img'; avatar.src = msg.avatar || 'assets/images/default-avatar.png';
     left.appendChild(nameDiv);
     left.appendChild(avatar);
     const bubble = document.createElement('div');
