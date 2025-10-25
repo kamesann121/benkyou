@@ -7,10 +7,10 @@ const http = require('http').createServer(app);
 const io = require('socket.io')(http);
 
 const DATA_FILE = path.join(__dirname, 'data.json');
-
 app.use(express.static('public'));
+app.use(express.json({ limit: '1mb' }));
 
-// load or init persistent totals
+// --- persistent totals load/save ---
 let totals = {};
 try {
   if (fs.existsSync(DATA_FILE)) {
@@ -20,7 +20,6 @@ try {
   console.error('Failed reading data file, starting with empty totals', e);
   totals = {};
 }
-
 function saveTotals() {
   try {
     fs.writeFileSync(DATA_FILE, JSON.stringify(totals, null, 2), 'utf8');
@@ -29,39 +28,63 @@ function saveTotals() {
   }
 }
 
-// connected users: socketId -> { id, name, avatar, held, total }
-const connected = {};
+// --- simple sanitize on server (final defense) ---
+const BANNED = ['game', 'ゲーム', '該当カテゴリ:ゲーム'];
+function sanitizeServer(text) {
+  if (!text && text !== 0) return '';
+  let t = String(text);
+  BANNED.forEach(w => {
+    const esc = w.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+    const re = new RegExp(esc, 'ig');
+    t = t.replace(re, '［非表示語］');
+  });
+  t = t.replace(/<[^>]*>/g, '').trim();
+  return t;
+}
 
-// helper to build ranking list (connected users only)
+// --- connected users store ---
+const connected = {}; // socket.id -> { id, name, avatar, held }
+
+// helper ranking for connected users only
 function connectedRanking() {
   return Object.values(connected)
     .map(u => ({ id: u.id, name: u.name, avatar: u.avatar, held: u.held || 0, total: totals[u.id] || 0 }))
-    .sort((a,b) => (b.held + b.total) - (a.held + a.total)); // rank by combined as example
+    .sort((a, b) => (b.held + b.total) - (a.held + a.total));
 }
 
-io.on('connection', (socket) => {
-  // When a client connects, it should send 'init' with { id (optional), name, avatar }
-  socket.on('init', (data) => {
-    // choose stable id: if client provided id reuse, else use socket.id
-    const clientId = data && data.id ? data.id : socket.id;
-    const name = (data && data.name) ? data.name.slice(0, 32) : '研究者';
-    const avatar = (data && data.avatar) ? data.avatar : null;
+// optional endpoint for sendBeacon commit
+app.post('/__commit', (req, res) => {
+  try {
+    const body = req.body;
+    let id = body && body.id;
+    let commit = Number(body && body.commit);
+    if (!id && typeof body === 'string') {
+      try {
+        const parsed = JSON.parse(body);
+        id = parsed.id;
+        commit = Number(parsed.commit);
+      } catch (e) {}
+    }
+    if (id && !isNaN(commit) && commit > 0) {
+      totals[id] = (totals[id] || 0) + commit;
+      saveTotals();
+    }
+  } catch (e) {}
+  res.sendStatus(200);
+});
 
-    // ensure totals entry exists
+// --- socket handlers ---
+io.on('connection', (socket) => {
+  socket.on('init', (data) => {
+    const clientId = data && data.id ? data.id : socket.id;
+    const name = data && data.name ? sanitizeServer(data.name).slice(0, 32) : '研究者';
+    const avatar = data && data.avatar ? data.avatar : null;
     if (!totals[clientId]) totals[clientId] = 0;
     connected[socket.id] = { id: clientId, name, avatar, held: 0 };
-
-    // send back initial data: your id and your stored total
     socket.emit('init:ack', { id: clientId, total: totals[clientId] });
-
-    // notify others user list changed
     io.emit('ranking:update', connectedRanking());
   });
 
-  // receive when client increments held (local pick) and chooses to commit to total
-  // We support two events:
-  //  - 'held:update' => updates server's idea of current held (for live ranking)
-  //  - 'commit:held' => commit held to total (persisted) and zero held
   socket.on('held:update', (value) => {
     const u = connected[socket.id];
     if (!u) return;
@@ -74,21 +97,36 @@ io.on('connection', (socket) => {
     if (!u) return;
     const commit = Number(value) || 0;
     const id = u.id;
-    totals[id] = (totals[id] || 0) + commit;
-    u.held = 0;
-    saveTotals();
-    // broadcast updated totals and rankings
-    io.emit('ranking:update', connectedRanking());
-    io.emit('total:updated', { id, total: totals[id] });
+    if (commit > 0) {
+      totals[id] = (totals[id] || 0) + commit;
+      saveTotals();
+      u.held = 0;
+      io.emit('ranking:update', connectedRanking());
+      io.emit('total:updated', { id, total: totals[id] });
+    }
   });
 
-  // chat messages passthrough (unchanged)
+  // purchase deduction event (client requests to deduct from total)
+  socket.on('purchase:deduct', (data) => {
+    try {
+      const id = data && data.id ? data.id : (connected[socket.id] && connected[socket.id].id);
+      const amount = Number(data && data.amount) || 0;
+      if (id && amount > 0) {
+        totals[id] = (totals[id] || 0) - amount;
+        if (totals[id] < 0) totals[id] = 0;
+        saveTotals();
+        io.emit('total:updated', { id, total: totals[id] });
+        io.emit('ranking:update', connectedRanking());
+      }
+    } catch (e) {}
+  });
+
   socket.on('chat message', (msg) => {
-    // msg should include name, text, avatar
-    io.emit('chat message', msg);
+    const safeName = sanitizeServer(msg && msg.name ? msg.name : '研究者');
+    const safeText = sanitizeServer(msg && msg.text ? msg.text : '');
+    io.emit('chat message', { name: safeName, text: safeText, avatar: msg && msg.avatar ? msg.avatar : null });
   });
 
-  // disconnect
   socket.on('disconnect', () => {
     delete connected[socket.id];
     io.emit('ranking:update', connectedRanking());
