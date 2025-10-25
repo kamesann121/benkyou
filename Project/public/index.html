@@ -9,7 +9,9 @@
 <body>
   <header class="site-header">
     <h1>地下資源採取ラボ</h1>
-    <div class="header-stats">採取量: <span id="emerald-count">0</span> <span class="eme-label">エメ</span></div>
+    <div class="header-stats">
+      総合エメ（あなた）: <span id="total-em">0</span> エメ
+    </div>
   </header>
 
   <main class="hud-layout">
@@ -21,8 +23,13 @@
     </aside>
 
     <section class="click-area">
+      <div class="counts">
+        <div class="label">現在の所持エメ（手持ち）: <span id="held-em">0</span></div>
+        <div class="label small">総合採取エメ（累計）: <span id="total-em-dup">0</span></div>
+      </div>
+
       <img src="assets/images/mineral.png" alt="資源" id="emerald" />
-      <p class="count-line">現在の採取量: <span id="emerald-count-dup">0</span> <span class="eme-label">エメ</span></p>
+      <p class="count-line">クリックで採取（+1 所持エメ）</p>
     </section>
 
     <aside class="chat">
@@ -52,6 +59,11 @@
         <input id="chat-input" placeholder="メッセージ..." />
         <button type="submit">送信</button>
       </form>
+
+      <div class="ranking-panel">
+        <h3>接続中ランキング</h3>
+        <ul id="ranking-list" class="ranking-list"></ul>
+      </div>
     </aside>
   </main>
 
