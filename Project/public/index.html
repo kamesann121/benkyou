@@ -1,8 +1,9 @@
 <!DOCTYPE html>
 <html lang="ja">
 <head>
-  <meta charset="UTF-8" />
+  <meta charset="utf-8" />
   <title>地下資源採取ラボ</title>
+  <meta name="viewport" content="width=device-width,initial-scale=1" />
   <link rel="stylesheet" href="style.css" />
 </head>
 <body>
@@ -14,7 +15,7 @@
   <main class="hud-layout">
     <aside class="shop">
       <button id="toggle-shop" class="module-btn">🛠️ モジュール</button>
-      <div id="shop-panel" class="shop-panel">
+      <div id="shop-panel" class="shop-panel" aria-hidden="true">
         <div id="shop-items" class="shop-items"></div>
       </div>
     </aside>
@@ -26,17 +27,29 @@
 
     <aside class="chat">
       <h2 class="chat-title">💬 チャット</h2>
-      <div class="chat-controls">
-        <input id="username" placeholder="名前" />
-        <input type="file" id="avatar-upload" accept="image/*" />
+
+      <div class="profile-setup">
+        <div class="profile-inputs">
+          <input id="username" placeholder="ニックネーム（最大16文字）" maxlength="16" />
+          <label class="file-label">
+            アバターを選択
+            <input type="file" id="avatar-upload" accept="image/*" />
+          </label>
+        </div>
+        <div class="profile-preview">
+          <div class="preview-box">
+            <img id="avatar-preview" src="assets/images/default-avatar.png" alt="avatar preview" />
+            <div id="preview-name">研究者</div>
+          </div>
+        </div>
       </div>
 
-      <div id="chat-window" class="chat-window">
+      <div id="chat-window" class="chat-window" aria-live="polite">
         <ul id="messages" class="messages"></ul>
       </div>
 
-      <form id="chat-form" class="chat-form">
-        <input id="chat-input" autocomplete="off" placeholder="メッセージ..." />
+      <form id="chat-form" class="chat-form" autocomplete="off">
+        <input id="chat-input" placeholder="メッセージ..." />
         <button type="submit">送信</button>
       </form>
     </aside>
