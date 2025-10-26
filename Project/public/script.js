@@ -1,12 +1,11 @@
 // client-side script.js
-// Local state + Socket.IO integration
 (() => {
   // helpers
-  function id(){ return (localStorage.getItem('playerId')) || (Math.random().toString(36).slice(2,9)); }
+  function generateId(){ return Math.random().toString(36).slice(2,9); }
   function savePlayer(){ localStorage.setItem('playerId', playerId); localStorage.setItem('playerName', playerName); localStorage.setItem('playerIcon', playerIcon); localStorage.setItem('totalTaps', totalTaps); localStorage.setItem('spentTaps', spentTaps); }
 
   // load local
-  let playerId = localStorage.getItem('playerId') || id();
+  let playerId = localStorage.getItem('playerId') || generateId();
   let playerName = localStorage.getItem('playerName') || 'You';
   let playerIcon = localStorage.getItem('playerIcon') || 'assets/images/mineral.png';
   let totalTaps = Number(localStorage.getItem('totalTaps') || 0);
@@ -32,7 +31,7 @@
   const shopPanel = document.getElementById('shopPanel');
   const iconSelect = document.getElementById('iconSelect');
 
-  // icons (extend as needed)
+  // icons
   const iconCandidates = [
     'assets/images/mineral.png',
     'assets/images/icon1.png',
@@ -53,7 +52,7 @@
   let cpsCount = 0;
   let cpsInterval = null;
   let socket = null;
-  let connectedUsers = []; // from server
+  let connectedUsers = [];
 
   // populate icon select
   iconCandidates.forEach(src=>{
@@ -109,9 +108,9 @@
 
   // presence / ranking render
   function renderPresence(list){
-    connectedUsers = list || connectedUsers;
+    if (list) connectedUsers = list;
     presenceList.innerHTML = '';
-    list.forEach(u=>{
+    (list || []).forEach(u=>{
       const li = document.createElement('li');
       li.style.display = 'flex';
       li.style.alignItems = 'center';
@@ -140,7 +139,6 @@
     });
 
     socket.on('joinAck', ({ id, user }) => {
-      // accept server authoritative record
       playerId = id;
       playerName = user.name;
       playerIcon = user.icon;
@@ -152,7 +150,6 @@
 
     socket.on('nameTaken', ({ suggested }) => {
       appendMessage({ name:'System', text:`名前が重複しています。提案: ${suggested}`, sys:true });
-      // auto-accept suggestion
       playerName = suggested;
       savePlayer();
       socket.emit('changeName', { name: playerName });
@@ -168,7 +165,6 @@
     socket.on('chat', (m) => { appendMessage({ name: m.name, icon: m.icon, text: m.text, me:false }); });
     socket.on('systemMsg', (m) => { appendMessage({ name:'System', text: m.text || m, sys:true }); });
     socket.on('clickEvent', (ev) => {
-      // optional small notice
       appendMessage({ name: ev.name, icon: ev.icon || 'assets/images/mineral.png', text: `+${ev.delta}`, me:false });
     });
     socket.on('buyResult', (res) => {
@@ -192,7 +188,6 @@
     if (now - lastClick <= 800) combo++; else combo = 1;
     lastClick = now;
     let gain = 1 + Math.floor(combo/10);
-    // clickBoost effect
     const boost = shopItems.find(s=>s.id==='clickBoost')?.owned || 0;
     if (boost) gain += boost;
     totalTaps += gain;
@@ -202,7 +197,6 @@
     animateMineral();
     appendMessage({ name: playerName, icon: playerIcon, text: `clicked +${gain}`, me:true });
     savePlayer();
-    // emit to server
     if (socket && socket.connected) socket.emit('click', { delta: gain });
   }
 
@@ -213,7 +207,6 @@
     e.preventDefault();
     const t = msgInput.value.trim();
     if (!t) return;
-    // if admin command typed locally, still send to server for processing
     if (socket && socket.connected) socket.emit('chat', { text: t });
     appendMessage({ name: playerName, icon: playerIcon, text: t, me:true });
     msgInput.value = '';
@@ -228,6 +221,7 @@
     savePlayer();
     if (socket && socket.connected) socket.emit('changeName', { name: playerName });
     renderPresence(connectedUsers);
+    nameInput.value = '';
   });
 
   // buy handling
@@ -237,13 +231,10 @@
     const itemId = btn.dataset.id;
     const price = Number(btn.dataset.price || 0);
     if ((totalTaps - spentTaps) < price) { appendMessage({ name:'Shop', text:'金が足りません', sys:true }); return; }
-    // local optimistic update for spent; authoritative update from server follows
     spentTaps += price;
     savePlayer(); updateDisplays();
     if (socket && socket.connected) socket.emit('buy', { itemId, price });
   });
-
-  // presence/ranking update handlers already attached in connect()
 
   // shop toggle
   shopToggle.addEventListener('click', ()=> {
@@ -252,40 +243,44 @@
     shopToggle.textContent = opened ? 'SHOP' : 'SHOP';
   });
 
-  // custom cursor cat install
+  // custom cursor cat install (overlay method)
   (function installCatCursor(){
     const catSrc = 'assets/images/cursor-cat.png';
-    const cat = new Image();
-    cat.src = catSrc;
-    cat.onload = () => {
+    const img = new Image();
+    img.src = catSrc;
+    img.onload = () => {
       document.body.classList.add('hide-cursor');
       const el = document.createElement('img');
       el.src = catSrc;
       el.alt = 'cat-cursor';
-      el.style.position = 'fixed';
-      el.style.pointerEvents = 'none';
-      el.style.width = '56px';
-      el.style.height = '56px';
-      el.style.transform = 'translate(-50%,-50%)';
-      el.style.zIndex = '9999';
-      el.style.transition = 'transform 80ms linear';
       el.id = 'catCursor';
+      Object.assign(el.style, {
+        position: 'fixed',
+        pointerEvents: 'none',
+        width: '56px',
+        height: '56px',
+        transform: 'translate(-50%,-50%)',
+        zIndex: '9999',
+        transition: 'transform 80ms linear, left 80ms linear, top 80ms linear'
+      });
       document.body.appendChild(el);
       window.addEventListener('pointermove', (e) => {
         el.style.left = e.clientX + 'px';
         el.style.top = e.clientY + 'px';
+        el.style.opacity = '1';
       });
       window.addEventListener('pointerdown', () => {
         el.style.transform = 'translate(-50%,-50%) scale(0.92) rotate(-6deg)';
         setTimeout(()=> el.style.transform = 'translate(-50%,-50%)', 120);
       });
+      window.addEventListener('pointerleave', () => el.style.opacity = '0');
+      window.addEventListener('pointerenter', () => el.style.opacity = '1');
     };
-    cat.onerror = () => { console.warn('cat cursor image failed to load:', catSrc); };
+    img.onerror = () => { console.warn('cat cursor image failed to load:', catSrc); };
   })();
 
   // init
   updateDisplays();
   connect();
-  // keep local save periodically
   setInterval(savePlayer, 5000);
 })();
