@@ -3,7 +3,7 @@
 <head>
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width,initial-scale=1" />
-  <title>全教科勉強</title>
+  <title>全教科勉強：相対性理論について</title>
   <link rel="stylesheet" href="style.css" />
 </head>
 <body>
@@ -25,7 +25,12 @@
       <header class="game-header">
         <h1>ミネラル採掘</h1>
         <div class="totals">
-          Total: <span id="total">0</span> / Spent: <span id="spent">0</span>
+          <div class="totals-inner">
+            Total: <span id="total">0</span>
+            <span class="slash">/</span>
+            Spent: <span id="spent">0</span>
+          </div>
+          <div class="gold-large">Gold: <span id="goldTop">0</span></div>
         </div>
       </header>
 
@@ -49,6 +54,7 @@
       <div class="chat-header">
         <input id="name" placeholder="名前(任意)" />
         <select id="iconSelect" title="アイコンを選択"></select>
+        <input id="iconUpload" type="file" accept="image/*" />
         <button id="setName">Set</button>
       </div>
 
@@ -65,6 +71,9 @@
       </div>
     </aside>
   </main>
+
+  <!-- transient notification area -->
+  <div id="toastContainer" aria-live="polite"></div>
 
   <script src="/socket.io/socket.io.js"></script>
   <script src="script.js"></script>
