@@ -1,159 +1,80 @@
 :root{
-  --bg-1:#071021;
-  --bg-2:#0b1220;
-  --panel:#0f1720;
-  --neon:#00ffe1;
-  --accent:#00cc77;
-  --accent-strong:#00e38f;
-  --muted:#a8cfc0;
-  --glass: rgba(255,255,255,0.04);
+  --bg:#071026;
+  --panel:#081428;
+  --accent:#4cc9f0;
+  --accent-2:#7c3aed;
+  --muted:#9fb3c8;
+  --glass: rgba(255,255,255,0.03);
+  --radius:14px;
+  --glow: 0 8px 30px rgba(76,201,240,0.12);
 }
 
-/* base */
+/* reset */
 *{box-sizing:border-box}
-body{
-  margin:0;
-  font-family: 'Segoe UI', system-ui, -apple-system, "Hiragino Kaku Gothic ProN", "Noto Sans JP", sans-serif;
-  background:
-    radial-gradient(1200px 600px at 10% 10%, rgba(0,255,204,0.03), transparent 10%),
-    radial-gradient(1200px 600px at 90% 90%, rgba(0,120,255,0.02), transparent 10%),
-    linear-gradient(180deg,var(--bg-1),var(--bg-2));
-  color:var(--muted);
-  -webkit-font-smoothing:antialiased;
-  -moz-osx-font-smoothing:grayscale;
-  min-height:100vh;
+html,body{height:100%;margin:0;font-family:Inter,system-ui,Segoe UI,Roboto,Arial;color:#e6eef8;background:linear-gradient(180deg,#050814 0%, #071026 100%);}
+.wrap{max-width:1200px;margin:28px auto;padding:16px;display:grid;grid-template-columns:260px 1fr 360px;gap:18px;align-items:start}
+
+/* left: shop */
+.left-panel{background:linear-gradient(180deg, rgba(255,255,255,0.02), rgba(255,255,255,0.01));border-radius:var(--radius);padding:12px;position:relative;box-shadow:var(--glow)}
+.shop-toggle{
+  display:flex;align-items:center;gap:10px;width:100%;padding:12px;border-radius:999px;border:none;background:linear-gradient(90deg,var(--accent),var(--accent-2));color:#021124;font-weight:800;cursor:pointer;font-size:14px;box-shadow:0 10px 30px rgba(124,58,237,0.12);transition:transform 180ms ease;
 }
+.shop-toggle:active{transform:translateY(2px) scale(0.995)}
+.shop-icon{font-size:18px;filter:drop-shadow(0 2px 6px rgba(0,0,0,0.45))}
+.shop-label{letter-spacing:1px}
 
-/* header */
-.site-header{
-  text-align:center;
-  padding:18px 20px;
-  border-bottom:1px solid rgba(255,255,255,0.03);
-  box-shadow:0 6px 24px rgba(0,0,0,0.6);
-  backdrop-filter: blur(6px);
-}
-.site-header h1{
-  margin:0;
-  color:var(--neon);
-  font-size:1.9rem;
-  letter-spacing:1px;
-  text-shadow:0 4px 22px rgba(0,255,204,0.08);
-}
-.header-stats{margin-top:6px;color:var(--muted);font-weight:600}
-.eme-label{color:var(--accent-strong);margin-left:6px;font-weight:700}
+/* collapsed body */
+.shop-body{margin-top:12px;max-height:420px;overflow:auto;transition:all 350ms cubic-bezier(.2,.9,.25,1);transform-origin:top;opacity:1;visibility:visible}
+.left-panel.collapsed .shop-body{max-height:0;opacity:0;visibility:hidden;transform:scaleY(0.98)}
 
-/* layout */
-.hud-layout{
-  display:flex;
-  gap:28px;
-  align-items:flex-start;
-  justify-content:center;
-  padding:28px;
-  flex-wrap:wrap;
-}
+/* shop internals */
+.balance{margin:8px 0;padding:10px;border-radius:10px;background:rgba(0,0,0,0.25);font-weight:700;color:var(--accent)}
+.shop-list .shop-item{display:flex;justify-content:space-between;align-items:center;padding:12px;border-radius:10px;background:linear-gradient(180deg, rgba(0,0,0,0.22), rgba(255,255,255,0.01));margin-bottom:10px;border:1px solid rgba(255,255,255,0.02)}
+.shop-item .price{font-size:13px;color:var(--muted)}
+.shop-item button.buy{padding:8px 12px;border-radius:10px;border:none;background:linear-gradient(90deg,var(--accent-2),var(--accent));color:#021124;font-weight:700;cursor:pointer;box-shadow:0 8px 22px rgba(76,201,240,0.08)}
 
-/* shop */
-.shop{width:320px;display:flex;flex-direction:column;gap:12px}
-.module-btn{
-  background:linear-gradient(180deg, rgba(255,255,255,0.02), rgba(255,255,255,0.01));
-  color:var(--neon);
-  border:1px solid rgba(0,255,204,0.06);
-  padding:14px 16px;
-  border-radius:14px;
-  cursor:pointer;
-  font-weight:800;
-  font-size:1rem;
-  display:flex;
-  align-items:center;
-  justify-content:center;
-  box-shadow:0 10px 30px rgba(0,0,0,0.6);
-}
-.module-btn:active{transform:translateY(1px)}
-.shop-panel{overflow:hidden;transition:max-height 420ms cubic-bezier(.2,.95,.2,1),opacity 280ms ease;max-height:0;opacity:0}
-.shop-panel.open{max-height:1400px;opacity:1}
-.shop-items{display:flex;flex-direction:column;gap:10px;padding-top:12px}
+/* center main */
+.center-panel{background:linear-gradient(180deg, rgba(255,255,255,0.02), rgba(255,255,255,0.01));border-radius:var(--radius);padding:18px;display:flex;flex-direction:column;align-items:center;box-shadow:0 10px 40px rgba(2,6,23,0.6)}
+.game-header{width:100%;display:flex;justify-content:space-between;align-items:center;margin-bottom:12px}
+.mineral-area{position:relative;width:360px;height:360px;display:flex;align-items:center;justify-content:center;border-radius:12px;background:linear-gradient(180deg, rgba(124,58,237,0.04), rgba(76,201,240,0.02));overflow:hidden}
+#mineralImg{width:46%;max-width:180px;transition:transform 120ms cubic-bezier(.2,.9,.25,1)}
+.tap-btn{position:absolute;bottom:18px;padding:18px 36px;border-radius:999px;border:none;background:linear-gradient(90deg,#ffd166,#ff6b6b);color:#021124;font-weight:900;font-size:18px;cursor:pointer;box-shadow:0 14px 40px rgba(255,107,107,0.12);transform:translateY(0);transition:transform 160ms ease}
+.tap-btn:active{transform:translateY(3px) scale(0.995)}
 
-/* item */
-.shop .item{
-  display:flex;
-  justify-content:space-between;
-  align-items:center;
-  padding:10px;
-  border-radius:10px;
-  background:linear-gradient(90deg, rgba(255,255,255,0.01), rgba(0,0,0,0.06));
-  border:1px solid rgba(255,255,255,0.02);
-}
-.shop .item .label{font-weight:700;color:#e9fff6}
-.price{color:var(--neon);font-weight:900;margin-right:8px}
-.buy-btn{background:var(--accent);color:#fff;padding:8px 12px;border-radius:10px;border:none;cursor:pointer}
-.buy-btn:hover{background:var(--accent-strong)}
-.buy-btn[disabled]{opacity:0.6;cursor:default}
+/* neon glow for stats */
+.stats{margin-top:14px;display:flex;gap:22px;color:var(--muted);font-size:15px}
+.ranking{width:100%;margin-top:18px;background:linear-gradient(180deg, rgba(0,0,0,0.18), rgba(255,255,255,0.01));padding:12px;border-radius:10px;border:1px solid rgba(255,255,255,0.02)}
+.ranking ol{padding-left:18px;margin:6px 0;color:#cfe7ff}
 
-/* click area */
-.click-area{
-  width:420px;
-  text-align:center;
-  display:flex;
-  flex-direction:column;
-  align-items:center;
-  gap:10px;
-  padding:8px;
-}
-#emerald{width:220px;height:auto;cursor:pointer;transition:transform .12s ease,box-shadow .12s ease;border-radius:14px;box-shadow:0 12px 40px rgba(0,0,0,0.6)}
-#emerald:hover{transform:translateY(-6px);box-shadow:0 20px 60px rgba(0,0,0,0.65)}
-#emerald:active{transform:scale(.98)}
-.count-line{color:var(--accent-strong);font-weight:800;margin:0}
+/* right chat */
+.right-panel{background:linear-gradient(180deg, rgba(255,255,255,0.02), rgba(255,255,255,0.01));border-radius:var(--radius);padding:12px;display:flex;flex-direction:column;gap:10px;box-shadow:var(--glow)}
+.chat-header{display:flex;gap:8px}
+.chat-header input{flex:1;padding:8px;border-radius:10px;border:1px solid rgba(255,255,255,0.05);background:transparent;color:#e6eef8}
+.chat-header select{padding:6px;border-radius:8px;border:1px solid rgba(255,255,255,0.05);background:transparent;color:#e6eef8}
+.chat-header button{padding:8px 10px;border-radius:8px;border:none;background:linear-gradient(90deg,var(--accent),var(--accent-2));color:#021124;font-weight:800;cursor:pointer}
 
-/* chat */
-.chat{width:360px;display:flex;flex-direction:column;gap:12px}
-.chat-title{margin:0;color:var(--neon);font-weight:800}
-.profile-setup{display:flex;gap:12px;align-items:center}
-.profile-inputs{display:flex;flex-direction:column;gap:8px;flex:1}
-.profile-inputs input{padding:8px;border-radius:8px;border:1px solid rgba(255,255,255,0.03);background:transparent;color:var(--muted)}
-.file-label{display:inline-block;padding:8px;border-radius:8px;background:var(--glass);cursor:pointer;border:1px solid rgba(255,255,255,0.02);font-size:0.9rem}
-.profile-preview .preview-box{display:flex;flex-direction:column;align-items:center;gap:6px}
-#avatar-preview{width:56px;height:56px;border-radius:50%;object-fit:cover;border:2px solid rgba(255,255,255,0.03)}
-#preview-name{font-size:0.85rem;color:var(--neon);font-weight:700}
+/* compact message style with icon */
+.messages{height:360px;overflow:auto;padding:10px;border-radius:8px;background:linear-gradient(180deg, rgba(0,0,0,0.12), rgba(255,255,255,0.01));border:1px solid rgba(255,255,255,0.02);display:flex;flex-direction:column;gap:8px}
+.msg-row{display:flex;gap:10px;align-items:flex-start}
+.msg-icon{width:36px;height:36px;border-radius:8px;object-fit:cover;flex:0 0 36px;border:1px solid rgba(255,255,255,0.03)}
+.msg-content{flex:1;padding:8px;border-radius:8px;background:linear-gradient(90deg, rgba(255,255,255,0.02), rgba(255,255,255,0.01));backdrop-filter: blur(4px)}
+.msg-content .meta{font-size:12px;color:var(--muted);margin-bottom:4px}
+.msg-content .body{font-size:14px;color:#dff4ff}
+.msg.me .msg-content{background:linear-gradient(90deg, rgba(124,58,237,0.06), rgba(76,201,240,0.03));font-weight:700}
 
-/* chat window compact */
-.chat-window{
-  background:linear-gradient(180deg, rgba(255,255,255,0.01), rgba(0,0,0,0.06));
-  border-radius:12px;padding:10px;height:320px;overflow-y:auto;border:1px solid rgba(255,255,255,0.02);
-}
-.messages{list-style:none;padding:0;margin:0;display:flex;flex-direction:column;gap:12px}
-
-/* message */
-.message{display:flex;align-items:flex-start;gap:12px}
-.message-left{display:flex;flex-direction:column;align-items:center;min-width:56px}
-.nickname{font-size:.72rem;color:var(--neon);margin-bottom:6px;text-align:center;word-break:break-word}
-.avatar-img{width:44px;height:44px;border-radius:50%;object-fit:cover;border:2px solid rgba(255,255,255,0.03)}
-
-/* bubble */
-.bubble{background:linear-gradient(180deg,var(--accent),#00764a);color:#fff;padding:10px 14px;border-radius:14px;max-width:72%;position:relative;box-shadow:0 6px 18px rgba(0,0,0,0.45);line-height:1.35}
-.bubble::after{content:"";position:absolute;left:-7px;top:12px;border:7px solid transparent;border-right-color:var(--accent)}
-
-/* form */
-.chat-form{display:flex;gap:8px}
-.chat-form input{flex:1;padding:10px;border-radius:10px;border:1px solid rgba(255,255,255,0.03);background:transparent;color:var(--muted)}
-.chat-form button{padding:10px 14px;border-radius:10px;border:none;background:var(--accent);color:#fff;cursor:pointer}
-.chat-form button:hover{background:var(--accent-strong)}
+/* presence */
+.presence{margin-top:6px;background:transparent;padding:8px;border-radius:8px}
+.presence ul{list-style:none;padding:0;margin:6px 0}
+.presence li{padding:6px;border-radius:6px;background:rgba(0,0,0,0.18);margin-bottom:6px;font-size:14px;color:#cfe7ff;display:flex;align-items:center;gap:8px}
 
 /* responsive */
-@media (max-width:980px){
-  .hud-layout{flex-direction:column;align-items:center;padding:18px}
-  .shop,.chat,.click-area{width:92%;max-width:720px}
-  .click-area{order:1}
-  .shop{order:0}
-  .chat{order:2}
-
-  /* ranking */
-.ranking-panel{margin-top:12px;background:linear-gradient(180deg, rgba(255,255,255,0.01), rgba(0,0,0,0.04));padding:10px;border-radius:10px}
-.ranking-panel h3{margin:0 0 8px 0;color:var(--neon);font-size:0.95rem}
-.ranking-list{list-style:none;padding:0;margin:0;display:flex;flex-direction:column;gap:8px}
-.ranking-item{display:flex;align-items:center;gap:8px;padding:6px;border-radius:8px;background:rgba(255,255,255,0.01);border:1px solid rgba(255,255,255,0.02)}
-.ranking-item .r-avatar{width:36px;height:36px;border-radius:50%;object-fit:cover}
-.ranking-item .r-name{color:var(--neon);font-weight:700;font-size:0.9rem}
-.ranking-item .r-stats{margin-left:auto;text-align:right;font-size:0.85rem;color:var(--muted)}
-.label.small{font-size:0.85rem;color:#cfeee0;margin-top:6px}
-.counts{margin-bottom:10px}
+@media(max-width:980px){
+  .wrap{grid-template-columns:1fr;gap:12px;padding:12px}
+  .left-panel{order:2}
+  .center-panel{order:1}
+  .right-panel{order:3}
+  .mineral-area{width:92%;height:320px}
 }
+
+/* custom cursor: hide default cursor and reserve space for cat image via JS */
+body.hide-cursor, .mineral-area.hide-cursor, .tap-btn.hide-cursor { cursor: none !important; }
