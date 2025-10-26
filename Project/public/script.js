@@ -1,4 +1,4 @@
-// client-side script.js （ギフト機能と表示改善を含む）
+// client-side script.js 更新版
 (() => {
   function generateId(){ return Math.random().toString(36).slice(2,9); }
   function savePlayer(){ localStorage.setItem('playerId', playerId); localStorage.setItem('playerName', playerName); localStorage.setItem('playerIcon', playerIcon); localStorage.setItem('totalTaps', totalTaps); localStorage.setItem('spentTaps', spentTaps); }
@@ -33,7 +33,7 @@
   const iconUpload = document.getElementById('iconUpload');
   const toastContainer = document.getElementById('toastContainer');
 
-  // gift modal elements
+  // gift modal refs (may not be present if HTML unchanged)
   const giftModal = document.getElementById('giftModal');
   const giftRecipientSelect = document.getElementById('giftRecipientSelect');
   const giftRecipientName = document.getElementById('giftRecipientName');
@@ -43,14 +43,14 @@
   const giftCancel = document.getElementById('giftCancel');
   const giftSend = document.getElementById('giftSend');
 
-  // default icons
+  // defaults
   const iconCandidates = [
     'assets/images/mineral.png',
     'assets/images/icon1.png',
     'assets/images/icon2.png'
   ];
 
-  // generate 100 shop items with scaled prices
+  // generate 100 shop items
   const shopItems = Array.from({length:100}).map((_,i)=>{
     const idx = i+1;
     const base = Math.floor(Math.pow(1.18, idx) * 50);
@@ -71,13 +71,9 @@
   let socket = null;
   let connectedUsers = [];
 
-  // click toast throttle
-  let clickCounter = 0;
-  const CLICK_TOAST_EVERY = 8;
-  const GAIN_TOAST_THRESHOLD = 5;
-
-  // populate icon select
+  // populate icon select, avoid ambiguous labels
   function populateIconSelect(){
+    if (!iconSelect) return;
     iconSelect.innerHTML = '';
     iconCandidates.forEach(src=>{
       const opt = document.createElement('option');
@@ -100,8 +96,9 @@
   }
   populateIconSelect();
 
-  // render shop (add Gift button)
+  // render shop
   function renderShop(){
+    if (!shopList) return;
     shopList.innerHTML = '';
     shopItems.forEach(it=>{
       const el = document.createElement('div');
@@ -122,19 +119,20 @@
   }
   renderShop();
 
-  // update displays
+  // update UI numbers
   function updateDisplays(){
-    totalEl.textContent = totalTaps;
-    spentEl.textContent = spentTaps;
+    if (totalEl) totalEl.textContent = totalTaps;
+    if (spentEl) spentEl.textContent = spentTaps;
     const gold = Math.max(0, totalTaps - spentTaps);
-    goldEl.textContent = gold;
-    goldTopEl.textContent = gold;
-    comboEl.textContent = combo;
+    if (goldEl) goldEl.textContent = gold;
+    if (goldTopEl) goldTopEl.textContent = gold;
+    if (comboEl) comboEl.textContent = combo;
   }
   updateDisplays();
 
-  // toast
+  // toast helper (kept for other uses, click toasts removed)
   function showToast(text, ms = 1000){
+    if (!toastContainer) return;
     const t = document.createElement('div');
     t.className = 'toast';
     t.textContent = text;
@@ -146,8 +144,17 @@
     }, ms);
   }
 
-  // chat append
+  // append chat/system messages but filter out server disconnect logs
   function appendMessage({ name, icon, text, me=false, sys=false }){
+    // filter unwanted system messages
+    if (sys) {
+      const txt = (text || '').toLowerCase();
+      // ignore plain "サーバー切断" or "server disconnected" messages
+      if (txt.includes('サーバー切断') || txt.includes('server disconnected') || txt.includes('切断')) {
+        return;
+      }
+    }
+
     const row = document.createElement('div'); row.className = 'msg-row' + (me ? ' me' : '');
     const img = document.createElement('img'); img.className = 'msg-icon'; img.src = icon || 'assets/images/mineral.png';
     const cont = document.createElement('div'); cont.className = 'msg-content';
@@ -155,12 +162,15 @@
     const body = document.createElement('div'); body.className = 'body'; body.textContent = text;
     cont.appendChild(meta); cont.appendChild(body);
     row.appendChild(img); row.appendChild(cont);
-    messages.appendChild(row);
-    messages.scrollTop = messages.scrollHeight;
+    if (messages) {
+      messages.appendChild(row);
+      messages.scrollTop = messages.scrollHeight;
+    }
   }
 
-  // presence + ranking (ranking only shows online users supplied by server)
+  // presence / ranking
   function renderPresence(list){
+    if (!presenceList || !rankList) return;
     if (list) connectedUsers = list;
     presenceList.innerHTML = '';
     (list || []).forEach(u=>{
@@ -174,7 +184,6 @@
       presenceList.appendChild(li);
     });
 
-    // ranking list uses same presence array sorted
     const arr = (list || []).slice().sort((a,b)=> ((b.total||0)-(b.spent||0)) - ((a.total||0)-(a.spent||0)));
     rankList.innerHTML = '';
     arr.forEach(u=> {
@@ -183,25 +192,13 @@
       rankList.appendChild(li);
     });
 
-    // update gift recipient select (online users)
-    populateGiftRecipients();
+    // update gift recipient select if modal exists
+    if (typeof populateGiftRecipients === 'function') populateGiftRecipients();
   }
 
-  function populateGiftRecipients(){
-    giftRecipientSelect.innerHTML = '';
-    // add '— select —' placeholder
-    const ph = document.createElement('option'); ph.value = ''; ph.textContent = 'オンラインから選ぶ';
-    giftRecipientSelect.appendChild(ph);
-    (connectedUsers || []).forEach(u=>{
-      const opt = document.createElement('option');
-      opt.value = u.id || u.name;
-      opt.textContent = `${u.name} (online)`;
-      giftRecipientSelect.appendChild(opt);
-    });
-  }
-
-  // connect
+  // connect to server
   function connect(){
+    if (!io) return;
     socket = io();
 
     socket.on('connect', () => {
@@ -214,7 +211,7 @@
       playerIcon = user.icon;
       totalTaps = Number(user.total || totalTaps);
       spentTaps = Number(user.spent || spentTaps);
-      // sync ownedItems
+      // sync owned items
       if (user.ownedItems) {
         Object.keys(user.ownedItems).forEach(k => {
           const it = shopItems.find(s => s.id === k);
@@ -241,35 +238,36 @@
 
     socket.on('presenceUpdate', (list) => { renderPresence(list); });
     socket.on('chat', (m) => { appendMessage({ name: m.name, icon: m.icon, text: m.text, me: m.name === playerName }); });
-    socket.on('systemMsg', (m) => { appendMessage({ name:'System', text: m.text || m, sys:true }); });
-    socket.on('clickEvent', (ev) => {
-      if (!ev) return;
-      const gain = Number(ev.delta || 0);
-      clickCounter++;
-      if (gain >= GAIN_TOAST_THRESHOLD || clickCounter % CLICK_TOAST_EVERY === 0) {
-        showToast(`${ev.name} +${gain}`);
+    socket.on('systemMsg', (m) => {
+      // filter server disconnect messages on client side
+      const txt = (m && m.text) ? String(m.text) : String(m || '');
+      const lc = txt.toLowerCase();
+      if (lc.includes('サーバー切断') || lc.includes('server disconnected') || lc.includes('切断')) {
+        return;
       }
+      appendMessage({ name:'System', text: txt, sys:true });
     });
 
-    // gift received
+    // remove clickEvent toast handling completely per request
+    socket.on('clickEvent', () => { /* intentionally ignored */ });
+
     socket.on('giftReceived', (payload) => {
-      // payload: { fromName, toId, type, itemId, amount }
       if (!payload) return;
       const from = payload.fromName || 'Someone';
       if (payload.type === 'gold') {
-        showToast(`${from} さんが${payload.amount} Goldをギフトしました`);
         appendMessage({ name:'System', text: `${from} さんがギフトしました: ${payload.amount} Gold`, sys:true });
+        // optional toast left out to reduce noise
       } else if (payload.type === 'item') {
         const itemTitle = payload.itemTitle || payload.itemId || 'Item';
-        showToast(`${from} さんがギフトしました: ${itemTitle}`);
         appendMessage({ name:'System', text: `${from} さんがギフトしました: ${itemTitle}`, sys:true });
       }
-      // local total/spent may be updated by server via presenceUpdate or explicit buyResult sync
     });
 
     socket.on('buyResult', (res) => {
-      if (!res.ok) appendMessage({ name:'Shop', text:'購入に失敗しました', sys:true });
-      else {
+      if (!res.ok) {
+        // avoid noisy buy failures unless reason provided
+        appendMessage({ name:'Shop', text: res.reason ? `購入に失敗しました: ${res.reason}` : '購入に失敗しました', sys:true });
+      } else {
         totalTaps = res.user.total; spentTaps = res.user.spent;
         if (res.user.ownedItems) {
           Object.keys(res.user.ownedItems).forEach(k => {
@@ -282,102 +280,109 @@
     });
 
     socket.on('disconnect', ()=> {
-      appendMessage({ name:'System', text:'サーバー切断', sys:true });
+      // previously displayed 'サーバー切断' message; now suppressed
+      // no UI noise on disconnect
     });
   }
 
-  // tap
-  tapBtn.addEventListener('mousedown', doTap);
-  tapBtn.addEventListener('touchstart', (e)=>{ e.preventDefault(); doTap(); });
+  // tap handling without toast
+  if (tapBtn) {
+    tapBtn.addEventListener('mousedown', doTap);
+    tapBtn.addEventListener('touchstart', (e)=>{ e.preventDefault(); doTap(); });
+  }
 
   function doTap(){
     const now = Date.now();
     if (now - lastClick <= 800) combo++; else combo = 1;
     lastClick = now;
     let gain = 1 + Math.floor(combo/10);
-    // boost example
+    // boost example mapping
     const boostItem = shopItems.find(s => s.id === 'item010');
     const boost = (boostItem && boostItem.owned) ? 1 : 0;
     if (boost) gain += boost;
     totalTaps += gain;
     cpsCount++;
-    if (!cpsInterval) cpsInterval = setInterval(()=>{ cpsEl.textContent = cpsCount; cpsCount=0; }, 1000);
+    if (!cpsInterval) cpsInterval = setInterval(()=>{ if (cpsEl) cpsEl.textContent = cpsCount; cpsCount=0; }, 1000);
     updateDisplays();
     animateMineral();
-    // throttled toast
-    clickCounter++;
-    if (gain >= GAIN_TOAST_THRESHOLD || clickCounter % CLICK_TOAST_EVERY === 0) {
-      showToast(`+${gain}`);
-    }
     savePlayer();
     if (socket && socket.connected) socket.emit('click', { delta: gain });
   }
 
-  function animateMineral(){ mineralImg.style.transform = 'scale(0.92) rotate(-6deg)'; setTimeout(()=> mineralImg.style.transform = '', 120); }
+  function animateMineral(){ if (mineralImg) { mineralImg.style.transform = 'scale(0.92) rotate(-6deg)'; setTimeout(()=> mineralImg.style.transform = '', 120); } }
 
-  // chat send
-  chatForm.addEventListener('submit', (e)=> {
-    e.preventDefault();
-    const t = msgInput.value.trim();
-    if (!t) return;
-    if (socket && socket.connected) {
-      socket.emit('chat', { text: t });
-    } else {
-      appendMessage({ name: playerName, icon: playerIcon, text: t, me:true });
-    }
-    msgInput.value = '';
-  });
+  // chat submit - send once
+  if (chatForm) {
+    chatForm.addEventListener('submit', (e)=> {
+      e.preventDefault();
+      const t = msgInput.value.trim();
+      if (!t) return;
+      if (socket && socket.connected) {
+        socket.emit('chat', { text: t });
+      } else {
+        appendMessage({ name: playerName, icon: playerIcon, text: t, me:true });
+      }
+      msgInput.value = '';
+    });
+  }
 
   // set name
-  setNameBtn.addEventListener('click', ()=>{
-    const v = nameInput.value.trim();
-    if (!v) return;
-    playerName = v;
-    playerIcon = iconSelect.value || playerIcon;
-    savePlayer();
-    populateIconSelect();
-    if (socket && socket.connected) socket.emit('changeName', { name: playerName });
-    renderPresence(connectedUsers);
-    nameInput.value = '';
-  });
+  if (setNameBtn) {
+    setNameBtn.addEventListener('click', ()=>{
+      const v = nameInput.value.trim();
+      if (!v) return;
+      playerName = v;
+      playerIcon = iconSelect ? iconSelect.value || playerIcon : playerIcon;
+      savePlayer();
+      populateIconSelect();
+      if (socket && socket.connected) socket.emit('changeName', { name: playerName });
+      renderPresence(connectedUsers);
+      nameInput.value = '';
+    });
+  }
 
   // upload icon
-  iconUpload.addEventListener('change', (e) => {
-    const f = e.target.files && e.target.files[0];
-    if (!f) return;
-    const fr = new FileReader();
-    fr.onload = () => {
-      playerIcon = fr.result;
+  if (iconUpload) {
+    iconUpload.addEventListener('change', (e) => {
+      const f = e.target.files && e.target.files[0];
+      if (!f) return;
+      const fr = new FileReader();
+      fr.onload = () => {
+        playerIcon = fr.result;
+        localStorage.setItem('playerIcon', playerIcon);
+        populateIconSelect();
+        if (iconSelect) iconSelect.value = playerIcon;
+        if (socket && socket.connected) socket.emit('changeName', { name: playerName });
+      };
+      fr.readAsDataURL(f);
+    });
+  }
+
+  if (iconSelect) {
+    iconSelect.addEventListener('change', () => {
+      playerIcon = iconSelect.value;
       localStorage.setItem('playerIcon', playerIcon);
-      populateIconSelect();
-      iconSelect.value = playerIcon;
-      if (socket && socket.connected) socket.emit('changeName', { name: playerName });
-    };
-    fr.readAsDataURL(f);
-  });
+    });
+  }
 
-  iconSelect.addEventListener('change', () => {
-    playerIcon = iconSelect.value;
-    localStorage.setItem('playerIcon', playerIcon);
-  });
-
-  // buy and gift click handlers
-  shopList.addEventListener('click', (e)=>{
-    const buyBtn = e.target.closest('button.buy-btn');
-    const giftBtn = e.target.closest('button.gift-btn');
-    if (buyBtn) {
-      const itemId = buyBtn.dataset.id;
-      const price = Number(buyBtn.dataset.price || 0);
-      handleBuy(itemId, price);
-      return;
-    }
-    if (giftBtn) {
-      const itemId = giftBtn.dataset.id;
-      const price = Number(giftBtn.dataset.price || 0);
-      openGiftModalForItem(itemId);
-      return;
-    }
-  });
+  // buy/gift handlers
+  if (shopList) {
+    shopList.addEventListener('click', (e)=>{
+      const buyBtn = e.target.closest('button.buy-btn');
+      const giftBtn = e.target.closest('button.gift-btn');
+      if (buyBtn) {
+        const itemId = buyBtn.dataset.id;
+        const price = Number(buyBtn.dataset.price || 0);
+        handleBuy(itemId, price);
+        return;
+      }
+      if (giftBtn) {
+        const itemId = giftBtn.dataset.id;
+        openGiftModalForItem(itemId);
+        return;
+      }
+    });
+  }
 
   function handleBuy(itemId, price){
     const item = shopItems.find(s => s.id === itemId);
@@ -385,7 +390,6 @@
     if (!item) return;
     if (item.owned) { showToast('既に購入済みです'); return; }
     if (gold < price) { appendMessage({ name:'Shop', text:'金が足りません', sys:true }); return; }
-    // optimistic
     item.owned = true;
     spentTaps += price;
     savePlayer(); updateDisplays(); renderShop();
@@ -393,89 +397,90 @@
     if (socket && socket.connected) socket.emit('buy', { itemId, price });
   }
 
-  // gift modal controls
-  function openGiftModalForItem(itemId){
-    // populate gift modal fields
-    giftRecipientName.value = '';
-    populateGiftRecipients();
-    giftType.value = 'item';
-    giftItemSelect.innerHTML = '';
-    // fill giftItemSelect with items (title + id)
-    shopItems.forEach(it => {
+  // gift modal functionality (only if modal exists)
+  function populateGiftRecipients(){
+    if (!giftRecipientSelect) return;
+    giftRecipientSelect.innerHTML = '';
+    const ph = document.createElement('option'); ph.value = ''; ph.textContent = 'オンラインから選ぶ';
+    giftRecipientSelect.appendChild(ph);
+    (connectedUsers || []).forEach(u=>{
       const opt = document.createElement('option');
-      opt.value = it.id;
-      opt.textContent = `${it.title} (${it.price})`;
-      giftItemSelect.appendChild(opt);
+      opt.value = u.id || u.name;
+      opt.textContent = `${u.name} (online)`;
+      giftRecipientSelect.appendChild(opt);
     });
-    // select the item clicked
-    if (itemId) giftItemSelect.value = itemId;
-    giftGoldAmount.style.display = 'none';
-    giftItemSelect.style.display = '';
+  }
+
+  function openGiftModalForItem(itemId){
+    if (!giftModal) return;
+    if (giftRecipientName) giftRecipientName.value = '';
+    populateGiftRecipients();
+    if (giftType) giftType.value = 'item';
+    if (giftItemSelect) {
+      giftItemSelect.innerHTML = '';
+      shopItems.forEach(it => {
+        const opt = document.createElement('option');
+        opt.value = it.id;
+        opt.textContent = `${it.title} (${it.price})`;
+        giftItemSelect.appendChild(opt);
+      });
+      if (itemId) giftItemSelect.value = itemId;
+    }
+    if (giftGoldAmount) giftGoldAmount.style.display = 'none';
+    if (giftItemSelect) giftItemSelect.style.display = '';
     giftModal.setAttribute('aria-hidden', 'false');
   }
 
-  giftCancel.addEventListener('click', ()=> {
-    giftModal.setAttribute('aria-hidden', 'true');
-  });
-
-  giftType.addEventListener('change', ()=> {
+  if (giftCancel) giftCancel.addEventListener('click', ()=> giftModal && giftModal.setAttribute('aria-hidden','true'));
+  if (giftType) giftType.addEventListener('change', ()=> {
+    if (!giftType) return;
     if (giftType.value === 'gold') {
-      giftGoldAmount.style.display = '';
-      giftItemSelect.style.display = 'none';
+      if (giftGoldAmount) giftGoldAmount.style.display = '';
+      if (giftItemSelect) giftItemSelect.style.display = 'none';
     } else {
-      giftGoldAmount.style.display = 'none';
-      giftItemSelect.style.display = '';
+      if (giftGoldAmount) giftGoldAmount.style.display = 'none';
+      if (giftItemSelect) giftItemSelect.style.display = '';
     }
   });
 
-  giftSend.addEventListener('click', ()=> {
-    const selectedRecipientId = giftRecipientSelect.value || '';
-    const typedName = giftRecipientName.value.trim();
+  if (giftSend) giftSend.addEventListener('click', ()=> {
+    if (!giftModal) return;
+    const selectedRecipientId = giftRecipientSelect ? giftRecipientSelect.value || '' : '';
+    const typedName = giftRecipientName ? giftRecipientName.value.trim() : '';
     const recipient = selectedRecipientId || typedName;
     if (!recipient) { showToast('送る相手を選んでください'); return; }
-    const type = giftType.value;
+    const type = giftType ? giftType.value : 'item';
     if (type === 'gold') {
-      const amt = Number(giftGoldAmount.value || 0);
+      const amt = Number(giftGoldAmount ? giftGoldAmount.value || 0 : 0);
       if (!amt || amt <= 0) { showToast('金額を指定してください'); return; }
       if ((totalTaps - spentTaps) < amt) { showToast('所持金が足りません'); return; }
-      // send gift request to server
       if (socket && socket.connected) {
         socket.emit('gift', { to: recipient, type:'gold', amount: amt });
       }
-      // optimistic local deduction (server authoritative will sync)
       spentTaps += amt;
       savePlayer(); updateDisplays(); renderShop();
       giftModal.setAttribute('aria-hidden','true');
       showToast('ギフトを送信しました');
       return;
     } else {
-      const itemId = giftItemSelect.value;
+      const itemId = giftItemSelect ? giftItemSelect.value : null;
       if (!itemId) { showToast('ギフトするアイテムを選んでください'); return; }
       const item = shopItems.find(s => s.id === itemId);
       if (!item) return;
-      if ((totalTaps - spentTaps) < item.price) { showToast('所持金が足りません'); return; }
-      // send gift request
-      if (socket && socket.connected) {
-        socket.emit('gift', { to: recipient, type:'item', itemId });
-      }
-      // optimistic local deduction and mark item owned? DO NOT mark owned locally; ownership belongs to recipient.
-      spentTaps += item.price;
-      savePlayer(); updateDisplays();
+      // client optimistic deduction is handled previously; for gifting we do not mark recipient locally
+      // the server will enforce cost rules
+      if (!socket || !socket.connected) { showToast('サーバー接続が必要です'); return; }
+      socket.emit('gift', { to: recipient, type:'item', itemId });
       giftModal.setAttribute('aria-hidden','true');
       showToast('ギフトを送信しました');
       return;
     }
   });
 
-  // buy/gift helper: if recipient is online, giftRecipientSelect.value contains playerId; if typed name, server will resolve by name or store for offline delivery
-  // server-side will validate and persist
-
   // shop toggle
-  shopToggle.addEventListener('click', ()=> {
-    shopPanel.classList.toggle('collapsed');
-  });
+  if (shopToggle) shopToggle.addEventListener('click', ()=> shopPanel.classList.toggle('collapsed'));
 
-  // custom cursor overlay (disabled on touch)
+  // custom cursor overlay (unchanged)
   (function installCatCursor(){
     if ('ontouchstart' in window) return;
     const catSrc = 'assets/images/cursor-cat.png';
