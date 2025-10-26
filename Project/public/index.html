@@ -3,7 +3,7 @@
 <head>
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width,initial-scale=1" />
-  <title>全教科勉強：相対性理論について</title>
+  <title>全教科勉強:相対性理論について</title>
   <link rel="stylesheet" href="style.css" />
 </head>
 <body>
@@ -45,7 +45,7 @@
       </div>
 
       <section class="ranking" id="ranking">
-        <h3>現在のランキング</h3>
+        <h3>現在のランキング（オンラインのみ）</h3>
         <ol id="rankList"></ol>
       </section>
     </section>
@@ -58,7 +58,7 @@
         <button id="setName">Set</button>
       </div>
 
-      <div class="messages" id="messages"></div>
+      <div class="messages" id="messages" role="log" aria-live="polite"></div>
 
       <form id="chatForm" class="chat-form">
         <input id="msg" autocomplete="off" placeholder="メッセージを入力" />
@@ -72,8 +72,33 @@
     </aside>
   </main>
 
-  <!-- transient notification area -->
   <div id="toastContainer" aria-live="polite"></div>
+
+  <!-- Gift modal (hidden) -->
+  <div id="giftModal" class="modal" aria-hidden="true">
+    <div class="modal-inner">
+      <h3>ギフトを送る</h3>
+      <label>送る相手（オンライン一覧から選択、または名前を入力）</label>
+      <select id="giftRecipientSelect"></select>
+      <div style="margin-top:8px;">
+        <label>もしくは名前入力</label>
+        <input id="giftRecipientName" placeholder="相手のニックネーム" />
+      </div>
+      <div style="margin-top:8px;">
+        <label>ギフト内容</label>
+        <select id="giftType">
+          <option value="item">Item</option>
+          <option value="gold">Gold</option>
+        </select>
+        <select id="giftItemSelect" style="margin-left:8px"></select>
+        <input id="giftGoldAmount" type="number" min="1" value="50" style="width:100px;margin-left:8px;display:none" />
+      </div>
+      <div class="modal-actions" style="margin-top:12px">
+        <button id="giftCancel">キャンセル</button>
+        <button id="giftSend">送る</button>
+      </div>
+    </div>
+  </div>
 
   <script src="/socket.io/socket.io.js"></script>
   <script src="script.js"></script>
