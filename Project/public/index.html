@@ -1,73 +1,71 @@
-<!DOCTYPE html>
+<!doctype html>
 <html lang="ja">
 <head>
   <meta charset="utf-8" />
-  <title>地下資源採取ラボ</title>
   <meta name="viewport" content="width=device-width,initial-scale=1" />
+  <title>Mineral</title>
   <link rel="stylesheet" href="style.css" />
 </head>
 <body>
-  <header class="site-header">
-    <h1>地下資源採取ラボ</h1>
-    <div class="header-stats">
-      総合エメ（あなた）: <span id="total-em">0</span> エメ
-    </div>
-  </header>
+  <main class="wrap">
+    <aside class="left-panel" id="shopPanel">
+      <button class="shop-toggle" id="shopToggle" aria-expanded="true">
+        <span class="shop-icon">🛒</span>
+        <span class="shop-label">SHOP</span>
+      </button>
 
-  <main class="hud-layout">
-    <aside class="shop">
-      <button id="toggle-shop" class="module-btn">🛠️ モジュール</button>
-      <div id="shop-panel" class="shop-panel" aria-hidden="true">
-        <div id="shop-items" class="shop-items"></div>
+      <div class="shop-body" id="shopBody" aria-hidden="false">
+        <h3>ショップ</h3>
+        <div class="balance">Gold: <span id="gold">0</span></div>
+        <div class="shop-list" id="shopList"></div>
       </div>
     </aside>
 
-    <section class="click-area">
-      <div class="counts">
-        <div class="label">現在の所持エメ（手持ち）: <span id="held-em">0</span></div>
-        <div class="label small">総合採取エメ（累計）: <span id="total-em-dup">0</span></div>
+    <section class="center-panel">
+      <header class="game-header">
+        <h1>ミネラル採掘</h1>
+        <div class="totals">
+          Total: <span id="total">0</span> / Spent: <span id="spent">0</span>
+        </div>
+      </header>
+
+      <div class="mineral-area" id="mineralArea" tabindex="0">
+        <img src="assets/images/mineral.png" id="mineralImg" alt="mineral" />
+        <button id="tapBtn" class="tap-btn">TAP</button>
       </div>
 
-      <img src="assets/images/mineral.png" alt="資源" id="emerald" />
-      <p class="count-line">クリックで採取（+1 所持エメ）</p>
+      <div class="stats">
+        <div>Combo: <span id="combo">0</span></div>
+        <div>CPS: <span id="cps">0</span></div>
+      </div>
+
+      <section class="ranking" id="ranking">
+        <h3>現在のランキング</h3>
+        <ol id="rankList"></ol>
+      </section>
     </section>
 
-    <aside class="chat">
-      <h2 class="chat-title">💬 チャット</h2>
-
-      <div class="profile-setup">
-        <div class="profile-inputs">
-          <input id="username" placeholder="ニックネーム（最大16文字）" maxlength="16" />
-          <label class="file-label">
-            アバターを選択
-            <input type="file" id="avatar-upload" accept="image/*" />
-          </label>
-        </div>
-        <div class="profile-preview">
-          <div class="preview-box">
-            <img id="avatar-preview" src="assets/images/default-avatar.png" alt="avatar preview" />
-            <div id="preview-name">研究者</div>
-          </div>
-        </div>
+    <aside class="right-panel">
+      <div class="chat-header">
+        <input id="name" placeholder="名前(任意)" />
+        <select id="iconSelect" title="アイコンを選択"></select>
+        <button id="setName">Set</button>
       </div>
 
-      <div id="chat-window" class="chat-window" aria-live="polite">
-        <ul id="messages" class="messages"></ul>
-      </div>
+      <div class="messages" id="messages"></div>
 
-      <form id="chat-form" class="chat-form" autocomplete="off">
-        <input id="chat-input" placeholder="メッセージ..." />
+      <form id="chatForm" class="chat-form">
+        <input id="msg" autocomplete="off" placeholder="メッセージを入力" />
         <button type="submit">送信</button>
       </form>
 
-      <div class="ranking-panel">
-        <h3>接続中ランキング</h3>
-        <ul id="ranking-list" class="ranking-list"></ul>
+      <div class="presence" id="presence">
+        <h4>オンライン</h4>
+        <ul id="presenceList"></ul>
       </div>
     </aside>
   </main>
 
-  <script src="/socket.io/socket.io.js"></script>
   <script src="script.js"></script>
 </body>
 </html>
