@@ -1,269 +1,291 @@
-// public/script.js
-document.addEventListener('DOMContentLoaded', () => {
-  // --- state ---
-  let heldEm = 0;
-  let totalEm = 0;
-  let uploadedAvatar = null;
-  let clientId = null;
+// client-side script.js
+// Local state + Socket.IO integration
+(() => {
+  // helpers
+  function id(){ return (localStorage.getItem('playerId')) || (Math.random().toString(36).slice(2,9)); }
+  function savePlayer(){ localStorage.setItem('playerId', playerId); localStorage.setItem('playerName', playerName); localStorage.setItem('playerIcon', playerIcon); localStorage.setItem('totalTaps', totalTaps); localStorage.setItem('spentTaps', spentTaps); }
 
-  const socket = io();
+  // load local
+  let playerId = localStorage.getItem('playerId') || id();
+  let playerName = localStorage.getItem('playerName') || 'You';
+  let playerIcon = localStorage.getItem('playerIcon') || 'assets/images/mineral.png';
+  let totalTaps = Number(localStorage.getItem('totalTaps') || 0);
+  let spentTaps = Number(localStorage.getItem('spentTaps') || 0);
 
-  // --- DOM ---
-  const emerald = document.getElementById('emerald');
-  const heldDisplay = document.getElementById('held-em') || document.getElementById('emerald-count');
-  const totalDisplay = document.getElementById('total-em');
-  const totalDup = document.getElementById('total-em-dup') || document.getElementById('emerald-count-dup');
-  const avatarUpload = document.getElementById('avatar-upload');
-  const avatarPreview = document.getElementById('avatar-preview');
-  const usernameInput = document.getElementById('username');
-  const previewName = document.getElementById('preview-name');
-  const form = document.getElementById('chat-form');
-  const input = document.getElementById('chat-input');
+  // UI refs
+  const totalEl = document.getElementById('total');
+  const spentEl = document.getElementById('spent');
+  const goldEl = document.getElementById('gold');
+  const comboEl = document.getElementById('combo');
+  const cpsEl = document.getElementById('cps');
+  const tapBtn = document.getElementById('tapBtn');
+  const mineralImg = document.getElementById('mineralImg');
   const messages = document.getElementById('messages');
-  const rankingList = document.getElementById('ranking-list');
-  const shopItemsContainer = document.getElementById('shop-items');
-  const toggleShopBtn = document.getElementById('toggle-shop');
-  const shopPanel = document.getElementById('shop-panel');
+  const nameInput = document.getElementById('name');
+  const setNameBtn = document.getElementById('setName');
+  const chatForm = document.getElementById('chatForm');
+  const msgInput = document.getElementById('msg');
+  const rankList = document.getElementById('rankList');
+  const presenceList = document.getElementById('presenceList');
+  const shopList = document.getElementById('shopList');
+  const shopToggle = document.getElementById('shopToggle');
+  const shopPanel = document.getElementById('shopPanel');
+  const iconSelect = document.getElementById('iconSelect');
 
-  if (localStorage.getItem('lab_client_id')) {
-    clientId = localStorage.getItem('lab_client_id');
-  }
-
-  // --- banned list and sanitizers ---
-  const BANNED = ['game', 'ゲーム', '該当カテゴリ:ゲーム'];
-  function escapeForRegex(s) {
-    return s.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
-  }
-
-  // client-side sanitize: normalize, lower, replace banned as whole words, strip tags/control chars
-  function sanitizeOutgoing(text) {
-    if (text === undefined || text === null) return '';
-    let t = String(text).normalize('NFKC').toLowerCase();
-    BANNED.forEach(w => {
-      const esc = escapeForRegex(w.normalize('NFKC').toLowerCase());
-      const re = new RegExp('\\b' + esc + '\\b', 'ig');
-      t = t.replace(re, '［非表示語］');
-    });
-    t = t.replace(/<[^>]*>/g, '').replace(/[\x00-\x1F\x7F]/g, '').trim();
-    return t;
-  }
-
-  function escapeHtml(str) {
-    return String(str).replace(/[&<>"']/g, (s) => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[s]));
-  }
-
-  function updateDisplays() {
-    if (heldDisplay) heldDisplay.textContent = heldEm;
-    if (totalDisplay) totalDisplay.textContent = totalEm;
-    if (totalDup) totalDup.textContent = totalEm;
-  }
-  updateDisplays();
-
-  // --- init / handshake ---
-  function sendInit() {
-    socket.emit('init', {
-      id: clientId,
-      name: usernameInput && usernameInput.value.trim() ? sanitizeOutgoing(usernameInput.value.trim()) : (previewName ? sanitizeOutgoing(previewName.textContent) : '研究者'),
-      avatar: uploadedAvatar || null
-    });
-  }
-  sendInit();
-
-  socket.on('init:ack', (data) => {
-    if (data && data.id) {
-      clientId = data.id;
-      localStorage.setItem('lab_client_id', clientId);
-    }
-    if (data && typeof data.total === 'number') {
-      totalEm = data.total;
-      updateDisplays();
-    }
-  });
-
-  socket.on('total:updated', (data) => {
-    if (!data || !data.id) return;
-    if (data.id === clientId) {
-      totalEm = data.total;
-      updateDisplays();
-    }
-  });
-
-  socket.on('ranking:update', (list) => {
-    renderRanking(list);
-  });
-
-  // --- click to collect (held) ---
-  if (emerald) {
-    emerald.addEventListener('click', () => {
-      heldEm += 1;
-      updateDisplays();
-      socket.emit('held:update', heldEm);
-      emerald.animate([{ transform: 'scale(1)' }, { transform: 'scale(1.03)' }, { transform: 'scale(1)' }], { duration: 160 });
-    });
-  }
-
-  // --- auto commit on unload ---
-  window.addEventListener('beforeunload', () => {
-    try {
-      if (heldEm > 0 && navigator.sendBeacon) {
-        const payload = JSON.stringify({ id: clientId, commit: heldEm });
-        navigator.sendBeacon('/__commit', payload);
-        socket.emit('commit:held', heldEm);
-      } else if (heldEm > 0) {
-        socket.emit('commit:held', heldEm);
-      }
-    } catch (e) {}
-  });
-
-  // --- shop items ---
-  const predefinedNames = [
-    "基礎ドリルI","基礎ドリルII","センサーA","センサーB","自動旋盤",
-    "採取アーム","冷却ユニット","精製モジュール","フィルター","安定化器",
-    "容量拡張I","容量拡張II","加速ユニット","伸縮アダプタ","防振プレート",
-    "電力コア小","電力コア中","電力コア大","解析モジュール","採取AI",
-    "レーザー強化","エネルギー収束器","超伝導配線","高精度センサー","再生ユニット",
-    "遠隔制御モジュール","保護シールド","ナビゲーションPX","レア検出器","最適化プロファイル"
+  // icons (extend as needed)
+  const iconCandidates = [
+    'assets/images/mineral.png',
+    'assets/images/icon1.png',
+    'assets/images/icon2.png',
+    'assets/images/cursor-cat.png'
   ];
-  const items = predefinedNames.map((name, i) => {
-    const base = 500;
-    const cost = Math.floor(base * Math.pow(1.65, i));
-    return {
-      id: i+1,
-      name,
-      cost,
-      label: `${cost}エメ`,
-      effect: () => {
-        const inc = Math.max(1, Math.floor((i+1)/5));
-        // safe system message (sanitized)
-        socket.emit('chat message', { name: 'システム', text: sanitizeOutgoing(`導入効果: 効率 +${inc}`), avatar: null });
-      }
-    };
-  });
 
-  function renderShop() {
-    if (!shopItemsContainer) return;
-    shopItemsContainer.innerHTML = '';
-    items.forEach((it, idx) => {
-      const div = document.createElement('div');
-      div.className = 'item';
-      div.innerHTML = `
-        <div class="label">${escapeHtml(it.name)}</div>
-        <div style="display:flex;align-items:center;gap:10px">
-          <div class="price">${escapeHtml(it.label)}</div>
-          <button class="buy-btn" data-idx="${idx}">購入</button>
+  // shop items
+  const shopItems = [
+    { id:'autoTap', title:'オートタップ', price:50, desc:'1/s の自動タップ', owned:0 },
+    { id:'clickBoost', title:'クリック倍率', price:120, desc:'タップごとの獲得増加', owned:0 },
+    { id:'decor', title:'建材', price:30, desc:'見た目の建材（spent に計上）', owned:0 }
+  ];
+
+  // runtime
+  let combo = 0;
+  let lastClick = 0;
+  let cpsCount = 0;
+  let cpsInterval = null;
+  let socket = null;
+  let connectedUsers = []; // from server
+
+  // populate icon select
+  iconCandidates.forEach(src=>{
+    const opt = document.createElement('option');
+    opt.value = src;
+    opt.textContent = src.split('/').pop();
+    iconSelect.appendChild(opt);
+  });
+  iconSelect.value = playerIcon;
+
+  // render shop
+  function renderShop(){
+    shopList.innerHTML = '';
+    shopItems.forEach(it=>{
+      const el = document.createElement('div');
+      el.className = 'shop-item';
+      el.innerHTML = `
+        <div>
+          <strong>${it.title}</strong>
+          <div class="price">Cost: ${it.price}</div>
+          <div style="font-size:13px;color:var(--muted)">${it.desc}</div>
         </div>
+        <div><button class="buy" data-id="${it.id}" data-price="${it.price}">Buy</button></div>
       `;
-      shopItemsContainer.appendChild(div);
+      shopList.appendChild(el);
     });
   }
   renderShop();
 
-  // --- purchase handling (uses totalEm) ---
-  document.addEventListener('click', (e) => {
-    const btn = e.target.closest && e.target.closest('.buy-btn');
-    if (!btn) return;
-    const idx = Number(btn.dataset.idx);
-    const item = items[idx];
-    if (!item) return;
-    if (totalEm >= item.cost) {
-      totalEm -= item.cost;
-      updateDisplays();
-      item.effect();
-      btn.textContent = '導入済';
-      btn.disabled = true;
-      btn.style.opacity = '0.7';
-      btn.animate([{ transform:'scale(1)' }, { transform:'scale(1.06)' }, { transform:'scale(1)' }], { duration:200 });
-      socket.emit('purchase:deduct', { id: clientId, amount: item.cost });
-      socket.emit('chat message', { name: 'システム', text: sanitizeOutgoing(`${item.name} を購入しました`), avatar: null });
-    } else {
-      btn.animate([{ transform:'translateY(0)' }, { transform:'translateY(-6px)' }, { transform:'translateY(0)' }], { duration:240 });
-    }
-  });
+  // UI updates
+  function updateDisplays(){
+    totalEl.textContent = totalTaps;
+    spentEl.textContent = spentTaps;
+    goldEl.textContent = Math.max(0, totalTaps - spentTaps);
+    comboEl.textContent = combo;
+  }
+  updateDisplays();
 
-  // --- toggle shop ---
-  if (toggleShopBtn && shopPanel) {
-    toggleShopBtn.addEventListener('click', () => {
-      const open = shopPanel.classList.toggle('open');
-      shopPanel.setAttribute('aria-hidden', String(!open));
-      toggleShopBtn.animate([{ transform:'scale(1)' }, { transform:'scale(0.98)' }, { transform:'scale(1)' }], { duration:140 });
-    });
+  // add message
+  function appendMessage({ name, icon, text, me=false, sys=false }){
+    const row = document.createElement('div'); row.className = 'msg-row';
+    const img = document.createElement('img'); img.className = 'msg-icon'; img.src = icon || 'assets/images/mineral.png';
+    const cont = document.createElement('div'); cont.className = 'msg-content';
+    const meta = document.createElement('div'); meta.className = 'meta'; meta.textContent = sys ? `SYSTEM • ${new Date().toLocaleTimeString()}` : `${name} • ${new Date().toLocaleTimeString()}`;
+    const body = document.createElement('div'); body.className = 'body'; body.textContent = text;
+    cont.appendChild(meta); cont.appendChild(body);
+    row.appendChild(img); row.appendChild(cont);
+    if (me) row.querySelector('.msg-content').style.background = 'linear-gradient(90deg, rgba(124,58,237,0.06), rgba(76,201,240,0.03))';
+    if (sys) { img.src = ''; img.style.width='8px'; img.style.height='8px'; }
+    messages.appendChild(row);
+    messages.scrollTop = messages.scrollHeight;
   }
 
-  // --- avatar upload & preview ---
-  if (avatarUpload) {
-    avatarUpload.addEventListener('change', (e) => {
-      const file = e.target.files[0];
-      if (!file) return;
-      const reader = new FileReader();
-      reader.onload = () => {
-        uploadedAvatar = reader.result;
-        if (avatarPreview) avatarPreview.src = uploadedAvatar;
-        sendInit();
-      };
-      reader.readAsDataURL(file);
-    });
-  }
-
-  // --- nickname preview ---
-  if (usernameInput) {
-    usernameInput.addEventListener('input', () => {
-      const v = usernameInput.value.trim() || '研究者';
-      if (previewName) previewName.textContent = v.length > 16 ? v.slice(0,16) : v;
-      sendInit();
-    });
-  }
-
-  // --- chat send (sanitize before sending) ---
-  if (form) {
-    form.addEventListener('submit', (e) => {
-      e.preventDefault();
-      const name = (usernameInput && usernameInput.value.trim() ? usernameInput.value.trim() : (previewName ? previewName.textContent : '研究者')).slice(0,16);
-      const raw = input && input.value;
-      const safe = sanitizeOutgoing(raw);
-      if (!safe) return;
-      socket.emit('chat message', { name: sanitizeOutgoing(name), text: safe, avatar: uploadedAvatar || null });
-      if (input) input.value = '';
-    });
-  }
-
-  // --- chat receive ---
-  socket.on('chat message', (msg) => {
-    if (!messages) return;
-    const li = document.createElement('li');
-    li.className = 'message';
-    const left = document.createElement('div');
-    left.className = 'message-left';
-    const nameDiv = document.createElement('div');
-    nameDiv.className = 'nickname';
-    nameDiv.textContent = msg.name || '研究者';
-    const avatar = document.createElement('img');
-    avatar.className = 'avatar-img'; avatar.src = msg.avatar || 'assets/images/default-avatar.png';
-    left.appendChild(nameDiv);
-    left.appendChild(avatar);
-    const bubble = document.createElement('div');
-    bubble.className = 'bubble';
-    bubble.textContent = msg.text;
-    li.appendChild(left);
-    li.appendChild(bubble);
-    messages.appendChild(li);
-    const chatWindow = document.getElementById('chat-window');
-    chatWindow && chatWindow.scrollTo({ top: chatWindow.scrollHeight, behavior: 'smooth' });
-  });
-
-  // --- ranking render ---
-  function renderRanking(list) {
-    if (!rankingList) return;
-    rankingList.innerHTML = '';
-    (list || []).forEach(u => {
+  // presence / ranking render
+  function renderPresence(list){
+    connectedUsers = list || connectedUsers;
+    presenceList.innerHTML = '';
+    list.forEach(u=>{
       const li = document.createElement('li');
-      li.className = 'ranking-item';
-      li.innerHTML = `
-        <img class="r-avatar" src="${u.avatar || 'assets/images/default-avatar.png'}" />
-        <div class="r-name">${escapeHtml(u.name)}</div>
-        <div class="r-stats">所持 ${u.held} | 累計 ${u.total}</div>
-      `;
-      rankingList.appendChild(li);
+      li.style.display = 'flex';
+      li.style.alignItems = 'center';
+      li.style.gap = '8px';
+      const im = document.createElement('img'); im.src = u.icon || 'assets/images/mineral.png'; im.style.width='28px'; im.style.height='28px'; im.style.borderRadius='6px';
+      const span = document.createElement('span'); span.textContent = `${u.name} • ${Math.max(0, (u.total||0) - (u.spent||0))}`;
+      li.appendChild(im); li.appendChild(span);
+      presenceList.appendChild(li);
     });
   }
-});
-```
+  function renderRanking(list){
+    rankList.innerHTML = '';
+    (list || []).forEach(u=>{
+      const li = document.createElement('li');
+      li.textContent = `${u.name} — Total:${u.total} Spent:${u.spent}`;
+      rankList.appendChild(li);
+    });
+  }
+
+  // connect to server
+  function connect(){
+    socket = io();
+
+    socket.on('connect', () => {
+      socket.emit('join', { id: playerId, name: playerName, icon: playerIcon, total: totalTaps, spent: spentTaps });
+    });
+
+    socket.on('joinAck', ({ id, user }) => {
+      // accept server authoritative record
+      playerId = id;
+      playerName = user.name;
+      playerIcon = user.icon;
+      totalTaps = Number(user.total || totalTaps);
+      spentTaps = Number(user.spent || spentTaps);
+      savePlayer();
+      updateDisplays();
+    });
+
+    socket.on('nameTaken', ({ suggested }) => {
+      appendMessage({ name:'System', text:`名前が重複しています。提案: ${suggested}`, sys:true });
+      // auto-accept suggestion
+      playerName = suggested;
+      savePlayer();
+      socket.emit('changeName', { name: playerName });
+    });
+
+    socket.on('banned', ({ reason }) => {
+      appendMessage({ name:'System', text:`あなたはバンされています: ${reason}`, sys:true });
+      socket.disconnect();
+    });
+
+    socket.on('presenceUpdate', (list) => { renderPresence(list); });
+    socket.on('rankingUpdate', (list) => { renderRanking(list); });
+    socket.on('chat', (m) => { appendMessage({ name: m.name, icon: m.icon, text: m.text, me:false }); });
+    socket.on('systemMsg', (m) => { appendMessage({ name:'System', text: m.text || m, sys:true }); });
+    socket.on('clickEvent', (ev) => {
+      // optional small notice
+      appendMessage({ name: ev.name, icon: ev.icon || 'assets/images/mineral.png', text: `+${ev.delta}`, me:false });
+    });
+    socket.on('buyResult', (res) => {
+      if (!res.ok) appendMessage({ name:'Shop', text:'購入に失敗しました', sys:true });
+      else {
+        totalTaps = res.user.total; spentTaps = res.user.spent;
+        savePlayer(); updateDisplays();
+      }
+    });
+    socket.on('disconnect', ()=> {
+      appendMessage({ name:'System', text:'サーバー切断', sys:true });
+    });
+  }
+
+  // tap handling
+  tapBtn.addEventListener('mousedown', doTap);
+  tapBtn.addEventListener('touchstart', (e)=>{ e.preventDefault(); doTap(); });
+
+  function doTap(){
+    const now = Date.now();
+    if (now - lastClick <= 800) combo++; else combo = 1;
+    lastClick = now;
+    let gain = 1 + Math.floor(combo/10);
+    // clickBoost effect
+    const boost = shopItems.find(s=>s.id==='clickBoost')?.owned || 0;
+    if (boost) gain += boost;
+    totalTaps += gain;
+    cpsCount++;
+    if (!cpsInterval) cpsInterval = setInterval(()=>{ cpsEl.textContent = cpsCount; cpsCount=0; }, 1000);
+    updateDisplays();
+    animateMineral();
+    appendMessage({ name: playerName, icon: playerIcon, text: `clicked +${gain}`, me:true });
+    savePlayer();
+    // emit to server
+    if (socket && socket.connected) socket.emit('click', { delta: gain });
+  }
+
+  function animateMineral(){ mineralImg.style.transform = 'scale(0.92) rotate(-6deg)'; setTimeout(()=> mineralImg.style.transform = '', 120); }
+
+  // chat submit
+  chatForm.addEventListener('submit', (e)=> {
+    e.preventDefault();
+    const t = msgInput.value.trim();
+    if (!t) return;
+    // if admin command typed locally, still send to server for processing
+    if (socket && socket.connected) socket.emit('chat', { text: t });
+    appendMessage({ name: playerName, icon: playerIcon, text: t, me:true });
+    msgInput.value = '';
+  });
+
+  // set name
+  setNameBtn.addEventListener('click', ()=>{
+    const v = nameInput.value.trim();
+    if (!v) return;
+    playerName = v;
+    playerIcon = iconSelect.value || playerIcon;
+    savePlayer();
+    if (socket && socket.connected) socket.emit('changeName', { name: playerName });
+    renderPresence(connectedUsers);
+  });
+
+  // buy handling
+  shopList.addEventListener('click', (e)=>{
+    const btn = e.target.closest('button.buy');
+    if (!btn) return;
+    const itemId = btn.dataset.id;
+    const price = Number(btn.dataset.price || 0);
+    if ((totalTaps - spentTaps) < price) { appendMessage({ name:'Shop', text:'金が足りません', sys:true }); return; }
+    // local optimistic update for spent; authoritative update from server follows
+    spentTaps += price;
+    savePlayer(); updateDisplays();
+    if (socket && socket.connected) socket.emit('buy', { itemId, price });
+  });
+
+  // presence/ranking update handlers already attached in connect()
+
+  // shop toggle
+  shopToggle.addEventListener('click', ()=> {
+    shopPanel.classList.toggle('collapsed');
+    const opened = !shopPanel.classList.contains('collapsed');
+    shopToggle.textContent = opened ? 'SHOP' : 'SHOP';
+  });
+
+  // custom cursor cat install
+  (function installCatCursor(){
+    const catSrc = 'assets/images/cursor-cat.png';
+    const cat = new Image();
+    cat.src = catSrc;
+    cat.onload = () => {
+      document.body.classList.add('hide-cursor');
+      const el = document.createElement('img');
+      el.src = catSrc;
+      el.alt = 'cat-cursor';
+      el.style.position = 'fixed';
+      el.style.pointerEvents = 'none';
+      el.style.width = '56px';
+      el.style.height = '56px';
+      el.style.transform = 'translate(-50%,-50%)';
+      el.style.zIndex = '9999';
+      el.style.transition = 'transform 80ms linear';
+      el.id = 'catCursor';
+      document.body.appendChild(el);
+      window.addEventListener('pointermove', (e) => {
+        el.style.left = e.clientX + 'px';
+        el.style.top = e.clientY + 'px';
+      });
+      window.addEventListener('pointerdown', () => {
+        el.style.transform = 'translate(-50%,-50%) scale(0.92) rotate(-6deg)';
+        setTimeout(()=> el.style.transform = 'translate(-50%,-50%)', 120);
+      });
+    };
+    cat.onerror = () => { console.warn('cat cursor image failed to load:', catSrc); };
+  })();
+
+  // init
+  updateDisplays();
+  connect();
+  // keep local save periodically
+  setInterval(savePlayer, 5000);
+})();
