@@ -1,6 +1,6 @@
 :root{
-  --bg:#071026;
-  --panel:#081428;
+  --bg:#0b1626; /* 少し明るく調整 */
+  --panel:#0f2233;
   --accent:#4cc9f0;
   --accent-2:#7c3aed;
   --muted:#9fb3c8;
@@ -11,8 +11,8 @@
 
 /* reset */
 *{box-sizing:border-box}
-html,body{height:100%;margin:0;font-family:Inter,system-ui,Segoe UI,Roboto,Arial;color:#e6eef8;background:linear-gradient(180deg,#050814 0%, #071026 100%);}
-.wrap{max-width:1200px;margin:28px auto;padding:16px;display:grid;grid-template-columns:260px 1fr 360px;gap:18px;align-items:start}
+html,body{height:100%;margin:0;font-family:Inter,system-ui,Segoe UI,Roboto,Arial;color:#e6eef8;background:linear-gradient(180deg,#081425 0%, var(--bg) 100%);}
+.wrap{max-width:1200px;margin:24px auto;padding:12px;display:grid;grid-template-columns:260px 1fr 360px;gap:14px;align-items:start}
 
 /* left: shop */
 .left-panel{background:linear-gradient(180deg, rgba(255,255,255,0.02), rgba(255,255,255,0.01));border-radius:var(--radius);padding:12px;position:relative;box-shadow:var(--glow)}
@@ -24,37 +24,43 @@ html,body{height:100%;margin:0;font-family:Inter,system-ui,Segoe UI,Roboto,Arial
 .shop-label{letter-spacing:1px}
 
 /* collapsed body */
-.shop-body{margin-top:12px;max-height:420px;overflow:auto;transition:all 350ms cubic-bezier(.2,.9,.25,1);transform-origin:top;opacity:1;visibility:visible}
+.shop-body{margin-top:12px;max-height:420px;overflow:auto;transition:all 300ms cubic-bezier(.2,.9,.25,1);transform-origin:top;opacity:1;visibility:visible}
 .left-panel.collapsed .shop-body{max-height:0;opacity:0;visibility:hidden;transform:scaleY(0.98)}
 
 /* shop internals */
 .balance{margin:8px 0;padding:10px;border-radius:10px;background:rgba(0,0,0,0.25);font-weight:700;color:var(--accent)}
-.shop-list .shop-item{display:flex;justify-content:space-between;align-items:center;padding:12px;border-radius:10px;background:linear-gradient(180deg, rgba(0,0,0,0.22), rgba(255,255,255,0.01));margin-bottom:10px;border:1px solid rgba(255,255,255,0.02)}
+.shop-list .shop-item{display:flex;justify-content:space-between;align-items:center;padding:12px;border-radius:10px;background:linear-gradient(180deg, rgba(0,0,0,0.18), rgba(255,255,255,0.01));margin-bottom:10px;border:1px solid rgba(255,255,255,0.02)}
 .shop-item .price{font-size:13px;color:var(--muted)}
 .shop-item button.buy{padding:8px 12px;border-radius:10px;border:none;background:linear-gradient(90deg,var(--accent-2),var(--accent));color:#021124;font-weight:700;cursor:pointer;box-shadow:0 8px 22px rgba(76,201,240,0.08)}
+.shop-item button.buy[disabled]{opacity:0.45;cursor:not-allowed;background:linear-gradient(90deg,#666,#444);box-shadow:none}
 
 /* center main */
-.center-panel{background:linear-gradient(180deg, rgba(255,255,255,0.02), rgba(255,255,255,0.01));border-radius:var(--radius);padding:18px;display:flex;flex-direction:column;align-items:center;box-shadow:0 10px 40px rgba(2,6,23,0.6)}
+.center-panel{background:linear-gradient(180deg, rgba(255,255,255,0.02), rgba(255,255,255,0.01));border-radius:var(--radius);padding:18px;display:flex;flex-direction:column;align-items:center;box-shadow:0 10px 40px rgba(2,6,23,0.5)}
 .game-header{width:100%;display:flex;justify-content:space-between;align-items:center;margin-bottom:12px}
-.mineral-area{position:relative;width:360px;height:360px;display:flex;align-items:center;justify-content:center;border-radius:12px;background:linear-gradient(180deg, rgba(124,58,237,0.04), rgba(76,201,240,0.02));overflow:hidden}
+.totals{display:flex;align-items:center;gap:12px}
+.totals-inner{color:#dceeff;font-weight:700}
+.gold-large{background:linear-gradient(90deg,#ffd166,#ff6b6b);padding:6px 12px;border-radius:10px;color:#021124;font-weight:900}
+
+/* mineral area */
+.mineral-area{position:relative;width:360px;height:360px;display:flex;align-items:center;justify-content:center;border-radius:12px;background:linear-gradient(180deg, rgba(124,58,237,0.03), rgba(76,201,240,0.015));overflow:hidden}
 #mineralImg{width:46%;max-width:180px;transition:transform 120ms cubic-bezier(.2,.9,.25,1)}
 .tap-btn{position:absolute;bottom:18px;padding:18px 36px;border-radius:999px;border:none;background:linear-gradient(90deg,#ffd166,#ff6b6b);color:#021124;font-weight:900;font-size:18px;cursor:pointer;box-shadow:0 14px 40px rgba(255,107,107,0.12);transform:translateY(0);transition:transform 160ms ease}
 .tap-btn:active{transform:translateY(3px) scale(0.995)}
 
-/* neon glow for stats */
+/* stats & ranking */
 .stats{margin-top:14px;display:flex;gap:22px;color:var(--muted);font-size:15px}
-.ranking{width:100%;margin-top:18px;background:linear-gradient(180deg, rgba(0,0,0,0.18), rgba(255,255,255,0.01));padding:12px;border-radius:10px;border:1px solid rgba(255,255,255,0.02)}
+.ranking{width:100%;margin-top:18px;background:linear-gradient(180deg, rgba(0,0,0,0.12), rgba(255,255,255,0.01));padding:12px;border-radius:10px;border:1px solid rgba(255,255,255,0.02)}
 .ranking ol{padding-left:18px;margin:6px 0;color:#cfe7ff}
 
 /* right chat */
 .right-panel{background:linear-gradient(180deg, rgba(255,255,255,0.02), rgba(255,255,255,0.01));border-radius:var(--radius);padding:12px;display:flex;flex-direction:column;gap:10px;box-shadow:var(--glow)}
-.chat-header{display:flex;gap:8px}
+.chat-header{display:flex;gap:8px;align-items:center}
 .chat-header input{flex:1;padding:8px;border-radius:10px;border:1px solid rgba(255,255,255,0.05);background:transparent;color:#e6eef8}
-.chat-header select{padding:6px;border-radius:8px;border:1px solid rgba(255,255,255,0.05);background:transparent;color:#e6eef8}
+.chat-header select, .chat-header input[type="file"]{padding:6px;border-radius:8px;border:1px solid rgba(255,255,255,0.05);background:transparent;color:#e6eef8}
 .chat-header button{padding:8px 10px;border-radius:8px;border:none;background:linear-gradient(90deg,var(--accent),var(--accent-2));color:#021124;font-weight:800;cursor:pointer}
 
 /* compact message style with icon */
-.messages{height:360px;overflow:auto;padding:10px;border-radius:8px;background:linear-gradient(180deg, rgba(0,0,0,0.12), rgba(255,255,255,0.01));border:1px solid rgba(255,255,255,0.02);display:flex;flex-direction:column;gap:8px}
+.messages{height:360px;overflow:auto;padding:10px;border-radius:8px;background:linear-gradient(180deg, rgba(0,0,0,0.1), rgba(255,255,255,0.01));border:1px solid rgba(255,255,255,0.02);display:flex;flex-direction:column;gap:8px}
 .msg-row{display:flex;gap:10px;align-items:flex-start}
 .msg-icon{width:36px;height:36px;border-radius:8px;object-fit:cover;flex:0 0 36px;border:1px solid rgba(255,255,255,0.03)}
 .msg-content{flex:1;padding:8px;border-radius:8px;background:linear-gradient(90deg, rgba(255,255,255,0.02), rgba(255,255,255,0.01));backdrop-filter: blur(4px)}
@@ -66,6 +72,11 @@ html,body{height:100%;margin:0;font-family:Inter,system-ui,Segoe UI,Roboto,Arial
 .presence{margin-top:6px;background:transparent;padding:8px;border-radius:8px}
 .presence ul{list-style:none;padding:0;margin:6px 0}
 .presence li{padding:6px;border-radius:6px;background:rgba(0,0,0,0.18);margin-bottom:6px;font-size:14px;color:#cfe7ff;display:flex;align-items:center;gap:8px}
+
+/* toast */
+#toastContainer{position:fixed;left:50%;transform:translateX(-50%);bottom:22px;z-index:9998;pointer-events:none;display:flex;flex-direction:column;gap:8px;align-items:center}
+.toast{background:rgba(10,10,10,0.8);color:#fff;padding:8px 12px;border-radius:8px;box-shadow:0 6px 18px rgba(0,0,0,0.5);pointer-events:auto;opacity:0;transform:translateY(8px);transition:opacity 220ms ease, transform 220ms ease}
+.toast.show{opacity:1;transform:translateY(0)}
 
 /* responsive */
 @media(max-width:980px){
