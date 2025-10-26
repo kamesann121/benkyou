@@ -25,8 +25,6 @@ function saveData(data){
 }
 
 const persistent = loadData();
-// persistent.users: playerId -> { id,name,icon,total,spent,isAdmin }
-// persistent.bans: { ids: [], names: [] }
 
 const app = express();
 const server = http.createServer(app);
@@ -34,18 +32,15 @@ const io = new Server(server);
 
 app.use(express.static(path.join(__dirname, 'public')));
 
-// runtime maps
-const socketsById = new Map(); // socketId -> playerId
-const connected = new Map(); // playerId -> { socketId, lastSeen }
+const socketsById = new Map();
+const connected = new Map();
 
-// helpers
 function isBannedId(id){ return persistent.bans.ids.includes(id); }
 function isBannedName(name){ return persistent.bans.names.includes(name); }
 function nameInUse(name, exceptId){
   for (const pid in persistent.users){
     if (persistent.users[pid].name === name && pid !== exceptId) return true;
   }
-  // also check currently connected for immediate collisions
   for (const [pid, info] of connected.entries()){
     const u = persistent.users[pid];
     if (u && u.name === name && pid !== exceptId) return true;
@@ -73,10 +68,8 @@ function broadcastRanking(){
   io.emit('rankingUpdate', arr.slice(0, 50));
 }
 
-// periodic save
 setInterval(()=> saveData(persistent), 10000);
 
-// socket handling
 io.on('connection', (socket) => {
   socket.on('join', (payload) => {
     const { id, name, icon, total = 0, spent = 0 } = payload || {};
@@ -89,14 +82,11 @@ io.on('connection', (socket) => {
       socket.disconnect(true);
       return;
     }
-    // ensure persistent record exists
     if (!persistent.users[id]) {
       persistent.users[id] = { id, name, icon: icon || 'assets/images/mineral.png', total: Number(total)||0, spent: Number(spent)||0, isAdmin:false };
     } else {
-      // merge totals carefully: treat client-sent total/spent as candidate
       persistent.users[id].total = Math.max(persistent.users[id].total || 0, Number(total) || persistent.users[id].total || 0);
       persistent.users[id].spent = Math.max(persistent.users[id].spent || 0, Number(spent) || persistent.users[id].spent || 0);
-      // update name/icon if changed but check uniqueness
       if (name && name !== persistent.users[id].name) {
         if (nameInUse(name, id)) {
           socket.emit('nameTaken', { suggested: suggestName(name) });
@@ -108,13 +98,11 @@ io.on('connection', (socket) => {
       if (icon) persistent.users[id].icon = icon;
     }
 
-    // name collision check for new name
     if (nameInUse(persistent.users[id].name, id)) {
       socket.emit('nameTaken', { suggested: suggestName(persistent.users[id].name) });
       return;
     }
 
-    // mark connected
     socketsById.set(socket.id, id);
     connected.set(id, { socketId: socket.id, lastSeen: Date.now() });
 
@@ -133,14 +121,12 @@ io.on('connection', (socket) => {
     const text = String(msg.text || '').trim();
     if (!text) return;
 
-    // commands
     if (text.startsWith('/')) {
       const parts = text.slice(1).split(/\s+/);
       const cmd = parts[0];
       const arg = parts.slice(1).join(' ');
       if (cmd === 'ban') {
         if (!user.isAdmin) { socket.emit('systemMsg', { text:'権限がありません' }); return; }
-        // find target by name or id
         let targetId = null;
         for (const pid in persistent.users){
           if (persistent.users[pid].name === arg) { targetId = pid; break; }
@@ -148,7 +134,6 @@ io.on('connection', (socket) => {
         if (targetId) {
           persistent.bans.ids.push(targetId);
           persistent.bans.names.push(persistent.users[targetId].name);
-          // if connected, kick
           const info = connected.get(targetId);
           if (info && info.socketId) {
             io.to(info.socketId).emit('banned', { reason: 'Banned by admin' });
@@ -165,9 +150,7 @@ io.on('connection', (socket) => {
       }
       if (cmd === 'bro') {
         if (!user.isAdmin) { socket.emit('systemMsg', { text:'権限がありません' }); return; }
-        // remove by name
         persistent.bans.names = persistent.bans.names.filter(n => n !== arg);
-        // also ids cleanup (optional)
         saveData(persistent);
         io.emit('systemMsg', { text: `${arg} has been unbanned` });
         broadcastPresence();
@@ -178,7 +161,6 @@ io.on('connection', (socket) => {
       return;
     }
 
-    // normal chat broadcast
     io.emit('chat', { name: user.name, icon: user.icon, text, ts: Date.now() });
   });
 
@@ -189,10 +171,8 @@ io.on('connection', (socket) => {
     if (!user) return;
     const delta = Number(payload.delta || 0);
     if (!delta) return;
-    // simple anti-cheat: limit per event and cap
     if (delta > 1000) return;
     user.total = (user.total || 0) + delta;
-    // broadcast update
     io.emit('clickEvent', { id: pid, name: user.name, delta, total: user.total });
     broadcastRanking();
     saveData(persistent);
@@ -205,14 +185,12 @@ io.on('connection', (socket) => {
     if (!user) return;
     const itemId = payload && payload.itemId;
     const price = Number(payload && payload.price) || 0;
-    // verify balance
     const gold = (user.total || 0) - (user.spent || 0);
     if (gold < price) {
       socket.emit('buyResult', { ok:false, reason:'not_enough' });
       return;
     }
     user.spent = (user.spent || 0) + price;
-    // item effects could be applied here (for simplicity, just save)
     io.emit('systemMsg', { text: `${user.name} bought ${itemId}` });
     saveData(persistent);
     broadcastPresence();
