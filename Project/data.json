@@ -1,0 +1,13 @@
+{
+  "users": {
+    "abc123": {
+      "id": "abc123",
+      "name": "あなたの名前",
+      "icon": "assets/images/mineral.png",
+      "total": 0,
+      "spent": 0,
+      "isAdmin": true
+    }
+  },
+  "bans": { "ids": [], "names": [] }
+}
