@@ -3,7 +3,7 @@
 <head>
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width,initial-scale=1" />
-  <title>全教科勉強:相対性理論について</title>
+  <title>全教科:勉強-相対性理論について</title>
   <link rel="stylesheet" href="style.css" />
 </head>
 <body>
@@ -13,7 +13,6 @@
         <span class="shop-icon">🛒</span>
         <span class="shop-label">SHOP</span>
       </button>
-
       <div class="shop-body" id="shopBody" aria-hidden="false">
         <h3>ショップ</h3>
         <div class="balance">Gold: <span id="gold">0</span></div>
@@ -25,11 +24,7 @@
       <header class="game-header">
         <h1>ミネラル採掘</h1>
         <div class="totals">
-          <div class="totals-inner">
-            Total: <span id="total">0</span>
-            <span class="slash">/</span>
-            Spent: <span id="spent">0</span>
-          </div>
+          <div class="totals-inner">Total: <span id="total">0</span> <span class="slash">/</span> Spent: <span id="spent">0</span></div>
           <div class="gold-large">Gold: <span id="goldTop">0</span></div>
         </div>
       </header>
@@ -51,51 +46,84 @@
     </section>
 
     <aside class="right-panel">
-      <div class="chat-header">
-        <input id="name" placeholder="名前(任意)" />
-        <select id="iconSelect" title="アイコンを選択"></select>
-        <input id="iconUpload" type="file" accept="image/*" />
-        <button id="setName">Set</button>
+      <div class="top-controls">
+        <div class="chat-header">
+          <input id="name" placeholder="名前(任意)" />
+          <select id="iconSelect" title="アイコンを選択"></select>
+          <input id="iconUpload" type="file" accept="image/*" />
+          <button id="setName">Set</button>
+        </div>
+
+        <div class="tab-controls">
+          <button class="tab-btn active" data-tab="chatTab">Chat</button>
+          <button class="tab-btn" data-tab="inventoryTab">Inventory</button>
+          <button class="tab-btn" data-tab="presenceTab">Online</button>
+        </div>
       </div>
 
-      <div class="messages" id="messages" role="log" aria-live="polite"></div>
+      <div class="panel-body">
+        <div id="chatTab" class="tab active">
+          <div class="messages" id="messages" role="log" aria-live="polite"></div>
+          <form id="chatForm" class="chat-form">
+            <input id="msg" autocomplete="off" placeholder="メッセージを入力" />
+            <button type="submit">送信</button>
+          </form>
+        </div>
 
-      <form id="chatForm" class="chat-form">
-        <input id="msg" autocomplete="off" placeholder="メッセージを入力" />
-        <button type="submit">送信</button>
-      </form>
+        <div id="inventoryTab" class="tab">
+          <div class="inventory-header">
+            <div>Gold: <strong id="invGold">0</strong></div>
+            <div><button id="openInventoryBtn">Open Inventory</button></div>
+          </div>
+          <div class="inventory-list" id="inventoryList">
+            <!-- owned items summary will be injected here -->
+          </div>
+        </div>
 
-      <div class="presence" id="presence">
-        <h4>オンライン</h4>
-        <ul id="presenceList"></ul>
+        <div id="presenceTab" class="tab">
+          <div class="presence" id="presence">
+            <h4>オンライン</h4>
+            <ul id="presenceList"></ul>
+          </div>
+        </div>
       </div>
     </aside>
   </main>
 
   <div id="toastContainer" aria-live="polite"></div>
 
-  <!-- Gift modal (hidden) -->
-  <div id="giftModal" class="modal" aria-hidden="true">
-    <div class="modal-inner">
-      <h3>ギフトを送る</h3>
-      <label>送る相手（オンライン一覧から選択、または名前を入力）</label>
-      <select id="giftRecipientSelect"></select>
-      <div style="margin-top:8px;">
-        <label>もしくは名前入力</label>
-        <input id="giftRecipientName" placeholder="相手のニックネーム" />
+  <!-- Inventory Modal -->
+  <div id="inventoryModal" class="modal" aria-hidden="true">
+    <div class="modal-inner inventory-modal-inner">
+      <h3>Inventory</h3>
+      <div class="inv-columns">
+        <div class="inv-left">
+          <h4>Your Items</h4>
+          <ul id="invItemsList" class="inv-items"></ul>
+        </div>
+        <div class="inv-right">
+          <h4>Selected Item</h4>
+          <div id="invItemDetail" class="inv-detail">選択してください</div>
+          <div class="inv-actions">
+            <button id="equipBtn">Equip</button>
+            <button id="addToFuseBtn">Add to Fuse</button>
+            <button id="sellBtn">Sell</button>
+          </div>
+
+          <h4 style="margin-top:12px">Fusion Queue (2 slots)</h4>
+          <div id="fuseSlots" class="fuse-slots">
+            <div class="fuse-slot" data-slot="0">Empty</div>
+            <div class="fuse-slot" data-slot="1">Empty</div>
+          </div>
+          <div class="fuse-actions">
+            <button id="doFuseBtn">Fuse</button>
+            <button id="clearFuseBtn">Clear</button>
+          </div>
+        </div>
       </div>
-      <div style="margin-top:8px;">
-        <label>ギフト内容</label>
-        <select id="giftType">
-          <option value="item">Item</option>
-          <option value="gold">Gold</option>
-        </select>
-        <select id="giftItemSelect" style="margin-left:8px"></select>
-        <input id="giftGoldAmount" type="number" min="1" value="50" style="width:100px;margin-left:8px;display:none" />
-      </div>
-      <div class="modal-actions" style="margin-top:12px">
-        <button id="giftCancel">キャンセル</button>
-        <button id="giftSend">送る</button>
+
+      <div style="margin-top:12px;text-align:right">
+        <button id="closeInventoryBtn">Close</button>
       </div>
     </div>
   </div>
