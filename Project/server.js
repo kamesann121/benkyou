@@ -1,4 +1,4 @@
-// server.js (ギフト対応)
+// server.js (ギフト送信時のアイテムは「元の価格の2倍」を送信者が支払うよう変更済み)
 const express = require('express');
 const http = require('http');
 const path = require('path');
@@ -27,6 +27,14 @@ function saveData(data){
 const persistent = loadData();
 persistent.users = persistent.users || {};
 persistent.bans = persistent.bans || { ids: [], names: [] };
+
+// Build shop price map matching client-side generation logic (item001..item100)
+const SHOP_PRICES = {};
+for (let i = 1; i <= 100; i++) {
+  const idx = i;
+  const base = Math.floor(Math.pow(1.18, idx) * 50);
+  SHOP_PRICES[`item${String(idx).padStart(3,'0')}`] = base;
+}
 
 const app = express();
 const server = http.createServer(app);
@@ -92,9 +100,8 @@ function applyGift({ fromId, fromName, to, type, itemId, amount }){
   if (!targetId) {
     targetId = findUserIdByName(to);
   }
-  // if still not found, create a placeholder user entry (offline delivery) keyed by generated id? We'll store by name mapping in pendingGifts
+  // if still not found, store as pending by name
   if (!targetId) {
-    // store pending gift by name: persistent.pendingGifts[name] = [...]
     persistent.pendingGifts = persistent.pendingGifts || {};
     persistent.pendingGifts[to] = persistent.pendingGifts[to] || [];
     persistent.pendingGifts[to].push({ fromName, type, itemId, amount, ts: Date.now() });
@@ -104,12 +111,10 @@ function applyGift({ fromId, fromName, to, type, itemId, amount }){
 
   // ensure recipient exists
   const user = persistent.users[targetId] || (persistent.users[targetId] = { id: targetId, name: to, icon:'assets/images/mineral.png', total:0, spent:0, isAdmin:false });
-  // apply gift
+
   if (type === 'gold') {
-    // gold is represented as increasing total directly (alternative designs possible)
     user.total = (user.total || 0) + Number(amount || 0);
     saveData(persistent);
-    // notify if connected
     const info = connected.get(targetId);
     if (info && info.socketId) {
       io.to(info.socketId).emit('giftReceived', { fromName, type:'gold', amount });
@@ -118,7 +123,7 @@ function applyGift({ fromId, fromName, to, type, itemId, amount }){
   } else if (type === 'item') {
     user.ownedItems = user.ownedItems || {};
     if (user.ownedItems[itemId]) {
-      // already owns; store as pending instead
+      // already owns: store pending
       persistent.pendingGifts = persistent.pendingGifts || {};
       persistent.pendingGifts[user.name] = persistent.pendingGifts[user.name] || [];
       persistent.pendingGifts[user.name].push({ fromName, type, itemId, amount:0, ts: Date.now() });
@@ -179,7 +184,6 @@ io.on('connection', (socket) => {
     if (persistent.pendingGifts && persistent.pendingGifts[persistent.users[id].name]) {
       const list = persistent.pendingGifts[persistent.users[id].name];
       list.forEach(g => {
-        // apply pending gift items to user record
         if (g.type === 'gold') {
           persistent.users[id].total = (persistent.users[id].total || 0) + Number(g.amount || 0);
           socket.emit('giftReceived', { fromName: g.fromName, type:'gold', amount: g.amount });
@@ -221,7 +225,6 @@ io.on('connection', (socket) => {
           return;
         }
         if (!targetId) targetId = arg;
-        // ban
         persistent.bans.ids.push(targetId);
         if (persistent.users[targetId] && persistent.users[targetId].name) {
           persistent.bans.names.push(persistent.users[targetId].name);
@@ -241,9 +244,7 @@ io.on('connection', (socket) => {
       if (cmd === 'bro') {
         if (!isAdminNow) { socket.emit('systemMsg', { text:'権限がありません' }); return; }
         if (!arg) { socket.emit('systemMsg', { text:'対象を指定してください: /bro ニックネームかplayerId' }); return; }
-        // remove name ban
         persistent.bans.names = persistent.bans.names.filter(n => n !== arg);
-        // remove ids that match name
         for (const pid in persistent.users) {
           if (persistent.users[pid].name === arg) {
             persistent.bans.ids = persistent.bans.ids.filter(x => x !== pid);
@@ -313,16 +314,14 @@ io.on('connection', (socket) => {
     const { to, type } = payload || {};
     if (!to || !type) return socket.emit('systemMsg', { text:'不正なリクエスト' });
 
-    // server-side validation: sender must have enough gold (total - spent)
     const senderGold = (sender.total || 0) - (sender.spent || 0);
+
     if (type === 'gold') {
       const amount = Number(payload.amount || 0);
       if (!amount || amount <= 0) return socket.emit('systemMsg', { text:'無効な金額' });
       if (senderGold < amount) return socket.emit('systemMsg', { text:'所持金が足りません' });
 
-      // deduct from sender as spent (represents transfer)
       sender.spent = (sender.spent || 0) + amount;
-      // apply gift
       const res = applyGift({ fromId: pid, fromName: sender.name, to, type:'gold', amount });
       saveData(persistent);
       broadcastPresence();
@@ -339,15 +338,27 @@ io.on('connection', (socket) => {
     if (type === 'item') {
       const itemId = payload.itemId;
       if (!itemId) return socket.emit('systemMsg', { text:'アイテムを指定してください' });
-      // validate sender has item (if buy gives ownership). For simplicity assume sender can gift even without owning (or require spending price)
-      // Here we treat item gift as costing price if given (but client already deducted sender spent). Server will not check ownership, but will record item in recipient ownership.
-      // If you want to require sender to own item, implement check here.
+
+      const itemPrice = SHOP_PRICES[itemId];
+      if (typeof itemPrice === 'undefined') {
+        return socket.emit('systemMsg', { text:'指定アイテムの価格が見つかりません' });
+      }
+
+      const cost = itemPrice * 2; // ここで「元の価格の2倍」を要求
+      if (senderGold < cost) {
+        return socket.emit('systemMsg', { text: `ギフト送信には ${cost} Gold が必要です（所持金不足）` });
+      }
+
+      // 払わせる（spent に追加）
+      sender.spent = (sender.spent || 0) + cost;
+
       const res = applyGift({ fromId: pid, fromName: sender.name, to, type:'item', itemId });
       saveData(persistent);
       broadcastPresence();
       broadcastRanking();
+
       if (res.delivered) {
-        io.emit('systemMsg', { text: `${sender.name} gifted ${itemId} to ${to}` });
+        io.emit('systemMsg', { text: `${sender.name} gifted ${itemId} to ${to} (cost ${cost})` });
         socket.emit('systemMsg', { text: 'ギフトを送信しました' });
       } else {
         socket.emit('systemMsg', { text: '相手が見つからないためオフラインとして保存しました' });
