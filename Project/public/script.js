@@ -1,4 +1,4 @@
-// client-side script.js
+// client-side script.js （修正版）
 (() => {
   // helpers
   function generateId(){ return Math.random().toString(36).slice(2,9); }
@@ -15,6 +15,7 @@
   const totalEl = document.getElementById('total');
   const spentEl = document.getElementById('spent');
   const goldEl = document.getElementById('gold');
+  const goldTopEl = document.getElementById('goldTop');
   const comboEl = document.getElementById('combo');
   const cpsEl = document.getElementById('cps');
   const tapBtn = document.getElementById('tapBtn');
@@ -30,20 +31,21 @@
   const shopToggle = document.getElementById('shopToggle');
   const shopPanel = document.getElementById('shopPanel');
   const iconSelect = document.getElementById('iconSelect');
+  const iconUpload = document.getElementById('iconUpload');
+  const toastContainer = document.getElementById('toastContainer');
 
-  // icons
+  // icons (built-in)
   const iconCandidates = [
     'assets/images/mineral.png',
     'assets/images/icon1.png',
-    'assets/images/icon2.png',
-    'assets/images/cursor-cat.png'
+    'assets/images/icon2.png'
   ];
 
   // shop items
   const shopItems = [
-    { id:'autoTap', title:'オートタップ', price:50, desc:'1/s の自動タップ', owned:0 },
-    { id:'clickBoost', title:'クリック倍率', price:120, desc:'タップごとの獲得増加', owned:0 },
-    { id:'decor', title:'建材', price:30, desc:'見た目の建材（spent に計上）', owned:0 }
+    { id:'autoTap', title:'オートタップ', price:50, desc:'1/s の自動タップ', owned:false },
+    { id:'clickBoost', title:'クリック倍率', price:120, desc:'タップごとの獲得増加', owned:false },
+    { id:'decor', title:'建材', price:30, desc:'見た目の建材（spent に計上）', owned:false }
   ];
 
   // runtime
@@ -54,14 +56,27 @@
   let socket = null;
   let connectedUsers = [];
 
-  // populate icon select
-  iconCandidates.forEach(src=>{
-    const opt = document.createElement('option');
-    opt.value = src;
-    opt.textContent = src.split('/').pop();
-    iconSelect.appendChild(opt);
-  });
-  iconSelect.value = playerIcon;
+  // icon select populate
+  function populateIconSelect(){
+    iconSelect.innerHTML = '';
+    iconCandidates.forEach(src=>{
+      const opt = document.createElement('option');
+      opt.value = src;
+      opt.textContent = src.split('/').pop();
+      iconSelect.appendChild(opt);
+    });
+    // user-uploaded icon (if any)
+    if (playerIcon && playerIcon.startsWith('data:')) {
+      const opt = document.createElement('option');
+      opt.value = playerIcon;
+      opt.textContent = 'local-image';
+      iconSelect.appendChild(opt);
+      iconSelect.value = playerIcon;
+    } else {
+      iconSelect.value = playerIcon;
+    }
+  }
+  populateIconSelect();
 
   // render shop
   function renderShop(){
@@ -75,7 +90,11 @@
           <div class="price">Cost: ${it.price}</div>
           <div style="font-size:13px;color:var(--muted)">${it.desc}</div>
         </div>
-        <div><button class="buy" data-id="${it.id}" data-price="${it.price}">Buy</button></div>
+        <div>
+          <button class="buy" data-id="${it.id}" data-price="${it.price}" ${it.owned ? 'disabled' : ''}>
+            ${it.owned ? 'Owned' : 'Buy'}
+          </button>
+        </div>
       `;
       shopList.appendChild(el);
     });
@@ -86,12 +105,28 @@
   function updateDisplays(){
     totalEl.textContent = totalTaps;
     spentEl.textContent = spentTaps;
-    goldEl.textContent = Math.max(0, totalTaps - spentTaps);
+    const gold = Math.max(0, totalTaps - spentTaps);
+    goldEl.textContent = gold;
+    goldTopEl.textContent = gold;
     comboEl.textContent = combo;
   }
   updateDisplays();
 
-  // add message
+  // toast helper (temporary notifications for clicks etc.)
+  function showToast(text, ms = 900){
+    const t = document.createElement('div');
+    t.className = 'toast';
+    t.textContent = text;
+    toastContainer.appendChild(t);
+    // trigger show
+    requestAnimationFrame(()=> t.classList.add('show'));
+    setTimeout(()=> {
+      t.classList.remove('show');
+      setTimeout(()=> t.remove(), 260);
+    }, ms);
+  }
+
+  // add chat message (server authoritative)
   function appendMessage({ name, icon, text, me=false, sys=false }){
     const row = document.createElement('div'); row.className = 'msg-row';
     const img = document.createElement('img'); img.className = 'msg-icon'; img.src = icon || 'assets/images/mineral.png';
@@ -145,6 +180,7 @@
       totalTaps = Number(user.total || totalTaps);
       spentTaps = Number(user.spent || spentTaps);
       savePlayer();
+      populateIconSelect();
       updateDisplays();
     });
 
@@ -162,15 +198,17 @@
 
     socket.on('presenceUpdate', (list) => { renderPresence(list); });
     socket.on('rankingUpdate', (list) => { renderRanking(list); });
-    socket.on('chat', (m) => { appendMessage({ name: m.name, icon: m.icon, text: m.text, me:false }); });
+    socket.on('chat', (m) => { appendMessage({ name: m.name, icon: m.icon, text: m.text, me: m.name === playerName }); });
     socket.on('systemMsg', (m) => { appendMessage({ name:'System', text: m.text || m, sys:true }); });
     socket.on('clickEvent', (ev) => {
-      appendMessage({ name: ev.name, icon: ev.icon || 'assets/images/mineral.png', text: `+${ev.delta}`, me:false });
+      // show transient toast notification instead of chat flood
+      if (ev && ev.name) showToast(`${ev.name} +${ev.delta}`);
     });
     socket.on('buyResult', (res) => {
       if (!res.ok) appendMessage({ name:'Shop', text:'購入に失敗しました', sys:true });
       else {
         totalTaps = res.user.total; spentTaps = res.user.spent;
+        // mark item owned if server returned item? For now server doesn't track owned: we keep local ownership for UI only
         savePlayer(); updateDisplays();
       }
     });
@@ -179,7 +217,7 @@
     });
   }
 
-  // tap handling
+  // tap handling (do not log clicks into chat, only transient toast and server event)
   tapBtn.addEventListener('mousedown', doTap);
   tapBtn.addEventListener('touchstart', (e)=>{ e.preventDefault(); doTap(); });
 
@@ -188,27 +226,33 @@
     if (now - lastClick <= 800) combo++; else combo = 1;
     lastClick = now;
     let gain = 1 + Math.floor(combo/10);
-    const boost = shopItems.find(s=>s.id==='clickBoost')?.owned || 0;
+    const boostItem = shopItems.find(s=>s.id==='clickBoost');
+    const boost = boostItem && boostItem.owned ? 1 : 0;
     if (boost) gain += boost;
     totalTaps += gain;
     cpsCount++;
     if (!cpsInterval) cpsInterval = setInterval(()=>{ cpsEl.textContent = cpsCount; cpsCount=0; }, 1000);
     updateDisplays();
     animateMineral();
-    appendMessage({ name: playerName, icon: playerIcon, text: `clicked +${gain}`, me:true });
+    // show transient toast instead of chat
+    showToast(`+${gain}`);
     savePlayer();
+    // emit to server once
     if (socket && socket.connected) socket.emit('click', { delta: gain });
   }
 
   function animateMineral(){ mineralImg.style.transform = 'scale(0.92) rotate(-6deg)'; setTimeout(()=> mineralImg.style.transform = '', 120); }
 
-  // chat submit
+  // chat submit (send once; do not locally append to avoid duplicates)
   chatForm.addEventListener('submit', (e)=> {
     e.preventDefault();
     const t = msgInput.value.trim();
     if (!t) return;
-    if (socket && socket.connected) socket.emit('chat', { text: t });
-    appendMessage({ name: playerName, icon: playerIcon, text: t, me:true });
+    if (socket && socket.connected) {
+      socket.emit('chat', { text: t });
+    } else {
+      appendMessage({ name: playerName, icon: playerIcon, text: t, me:true });
+    }
     msgInput.value = '';
   });
 
@@ -219,20 +263,54 @@
     playerName = v;
     playerIcon = iconSelect.value || playerIcon;
     savePlayer();
+    populateIconSelect();
     if (socket && socket.connected) socket.emit('changeName', { name: playerName });
     renderPresence(connectedUsers);
     nameInput.value = '';
   });
 
-  // buy handling
+  // upload local icon (data URL stored locally)
+  iconUpload.addEventListener('change', (e) => {
+    const f = e.target.files && e.target.files[0];
+    if (!f) return;
+    const fr = new FileReader();
+    fr.onload = () => {
+      playerIcon = fr.result; // data URL
+      localStorage.setItem('playerIcon', playerIcon);
+      // ensure select has this option
+      populateIconSelect();
+      iconSelect.value = playerIcon;
+      // inform server of icon change (changeName endpoint also accepts icon on join)
+      if (socket && socket.connected) socket.emit('changeName', { name: playerName });
+    };
+    fr.readAsDataURL(f);
+  });
+
+  // set name/or icon via select change preview
+  iconSelect.addEventListener('change', () => {
+    playerIcon = iconSelect.value;
+    localStorage.setItem('playerIcon', playerIcon);
+  });
+
+  // buy handling (single-purchase enforced locally)
   shopList.addEventListener('click', (e)=>{
     const btn = e.target.closest('button.buy');
     if (!btn) return;
     const itemId = btn.dataset.id;
     const price = Number(btn.dataset.price || 0);
-    if ((totalTaps - spentTaps) < price) { appendMessage({ name:'Shop', text:'金が足りません', sys:true }); return; }
+    // find item
+    const item = shopItems.find(s => s.id === itemId);
+    const gold = Math.max(0, totalTaps - spentTaps);
+    if (!item) return;
+    if (item.owned) { showToast('既に購入済みです'); return; }
+    if (gold < price) { appendMessage({ name:'Shop', text:'金が足りません', sys:true }); return; }
+    // mark owned locally and disable button
+    item.owned = true;
     spentTaps += price;
     savePlayer(); updateDisplays();
+    renderShop();
+    showToast(`${item.title} を購入しました`);
+    // notify server (authoritative spent update)
     if (socket && socket.connected) socket.emit('buy', { itemId, price });
   });
 
@@ -243,8 +321,9 @@
     shopToggle.textContent = opened ? 'SHOP' : 'SHOP';
   });
 
-  // custom cursor cat install (overlay method)
+  // custom cursor cat install (overlay method). disable on touch devices
   (function installCatCursor(){
+    if ('ontouchstart' in window) return; // disable overlay cursor on touch devices
     const catSrc = 'assets/images/cursor-cat.png';
     const img = new Image();
     img.src = catSrc;
@@ -281,6 +360,7 @@
 
   // init
   updateDisplays();
+  renderShop();
   connect();
   setInterval(savePlayer, 5000);
 })();
