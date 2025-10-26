@@ -78,3 +78,4 @@ html,body{height:100%;margin:0;font-family:Inter,system-ui,Segoe UI,Roboto,Arial
 
 /* custom cursor: hide default cursor and reserve space for cat image via JS */
 body.hide-cursor, .mineral-area.hide-cursor, .tap-btn.hide-cursor { cursor: none !important; }
+#catCursor { will-change: transform, left, top; pointer-events: none; position: fixed; z-index: 9999; }
