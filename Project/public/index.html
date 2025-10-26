@@ -3,7 +3,7 @@
 <head>
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width,initial-scale=1" />
-  <title>全教科:勉強-相対性理論について</title>
+  <title>全教科勉強-相対性理論について</title>
   <link rel="stylesheet" href="style.css" />
 </head>
 <body>
@@ -13,6 +13,7 @@
         <span class="shop-icon">🛒</span>
         <span class="shop-label">SHOP</span>
       </button>
+
       <div class="shop-body" id="shopBody" aria-hidden="false">
         <h3>ショップ</h3>
         <div class="balance">Gold: <span id="gold">0</span></div>
@@ -24,7 +25,11 @@
       <header class="game-header">
         <h1>ミネラル採掘</h1>
         <div class="totals">
-          <div class="totals-inner">Total: <span id="total">0</span> <span class="slash">/</span> Spent: <span id="spent">0</span></div>
+          <div class="totals-inner">
+            Total: <span id="total">0</span>
+            <span class="slash">/</span>
+            Spent: <span id="spent">0</span>
+          </div>
           <div class="gold-large">Gold: <span id="goldTop">0</span></div>
         </div>
       </header>
@@ -51,7 +56,7 @@
           <input id="name" placeholder="名前(任意)" />
           <select id="iconSelect" title="アイコンを選択"></select>
           <input id="iconUpload" type="file" accept="image/*" />
-          <button id="setName">Set</button>
+          <button id="setName" class="round-btn">Set</button>
         </div>
 
         <div class="tab-controls">
@@ -75,9 +80,7 @@
             <div>Gold: <strong id="invGold">0</strong></div>
             <div><button id="openInventoryBtn">Open Inventory</button></div>
           </div>
-          <div class="inventory-list" id="inventoryList">
-            <!-- owned items summary will be injected here -->
-          </div>
+          <div class="inventory-list" id="inventoryList"></div>
         </div>
 
         <div id="presenceTab" class="tab">
@@ -115,10 +118,16 @@
             <div class="fuse-slot" data-slot="0">Empty</div>
             <div class="fuse-slot" data-slot="1">Empty</div>
           </div>
-          <div class="fuse-actions">
-            <button id="doFuseBtn">Fuse</button>
-            <button id="clearFuseBtn">Clear</button>
+
+          <div class="fuse-preview" id="fusePreview" style="margin-top:10px">
+            <div>合体予想出力: <span id="previewOutput">—</span></div>
+            <div>合体コスト: <strong id="previewCost">—</strong></div>
+            <div style="margin-top:8px" class="fuse-actions">
+              <button id="doFuseBtn">Fuse</button>
+              <button id="clearFuseBtn">Clear</button>
+            </div>
           </div>
+
         </div>
       </div>
 
