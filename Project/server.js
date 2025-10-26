@@ -1,4 +1,4 @@
-// server.js
+// server.js (admin by name allowed)
 const express = require('express');
 const http = require('http');
 const path = require('path');
@@ -25,7 +25,6 @@ function saveData(data){
 }
 
 const persistent = loadData();
-// ensure structure
 persistent.users = persistent.users || {};
 persistent.bans = persistent.bans || { ids: [], names: [] };
 
@@ -38,11 +37,9 @@ app.use(express.static(path.join(__dirname, 'public')));
 const socketsById = new Map(); // socket.id -> playerId
 const connected = new Map();   // playerId -> { socketId, lastSeen }
 
-// helper checks
 function isBannedId(id){ return persistent.bans.ids.includes(id); }
 function isBannedName(name){ return persistent.bans.names.includes(name); }
 
-// name in use excluding optional exceptId
 function nameInUse(name, exceptId){
   if (!name) return false;
   for (const pid in persistent.users){
@@ -66,7 +63,7 @@ function broadcastPresence(){
   for (const [pid, info] of connected.entries()){
     const u = persistent.users[pid];
     if (!u) continue;
-    list.push({ id: pid, name: u.name, icon: u.icon, total: u.total, spent: u.spent, isAdmin: !!u.isAdmin });
+    list.push({ id: pid, name: u.name, icon: u.icon, total: u.total, spent: u.spent, isAdmin: !!u.isAdmin || u.name === 'admin' });
   }
   io.emit('presenceUpdate', list);
 }
@@ -76,10 +73,8 @@ function broadcastRanking(){
   io.emit('rankingUpdate', arr.slice(0, 50));
 }
 
-// persist periodically
 setInterval(()=> saveData(persistent), 10000);
 
-// Utility: find userId by name (exact match)
 function findUserIdByName(name){
   if (!name) return null;
   for (const pid in persistent.users){
@@ -88,18 +83,15 @@ function findUserIdByName(name){
   return null;
 }
 
-// Utility: ban by id (adds to bans.ids and bans.names if name known)
 function banById(targetId, byUser){
   if (!targetId) return false;
   if (!persistent.users[targetId]) {
-    // still record id ban
     if (!persistent.bans.ids.includes(targetId)) persistent.bans.ids.push(targetId);
     return true;
   }
   const tgt = persistent.users[targetId];
   if (!persistent.bans.ids.includes(targetId)) persistent.bans.ids.push(targetId);
   if (tgt.name && !persistent.bans.names.includes(tgt.name)) persistent.bans.names.push(tgt.name);
-  // kick if connected
   const info = connected.get(targetId);
   if (info && info.socketId) {
     io.to(info.socketId).emit('banned', { reason: `Banned by ${byUser || 'admin'}` });
@@ -109,22 +101,17 @@ function banById(targetId, byUser){
   return true;
 }
 
-// Utility: unban by id or name (removes from bans lists)
 function unbanByIdentifier(ident){
   if (!ident) return false;
-  // if matches id
   if (persistent.bans.ids.includes(ident)) {
     persistent.bans.ids = persistent.bans.ids.filter(x => x !== ident);
-    // also remove corresponding name if exists
     if (persistent.users[ident] && persistent.users[ident].name) {
       persistent.bans.names = persistent.bans.names.filter(n => n !== persistent.users[ident].name);
     }
     return true;
   }
-  // treat ident as name
   if (persistent.bans.names.includes(ident)) {
     persistent.bans.names = persistent.bans.names.filter(n => n !== ident);
-    // also remove any ids whose user name equals ident
     for (const pid in persistent.users) {
       if (persistent.users[pid].name === ident) {
         persistent.bans.ids = persistent.bans.ids.filter(x => x !== pid);
@@ -132,8 +119,6 @@ function unbanByIdentifier(ident){
     }
     return true;
   }
-  // also support receiving a playerId that matches a user record (clean up names)
-  // if ident equals a user id, remove that id from bans
   if (persistent.bans.ids.includes(ident)) {
     persistent.bans.ids = persistent.bans.ids.filter(x => x !== ident);
     return true;
@@ -141,7 +126,6 @@ function unbanByIdentifier(ident){
   return false;
 }
 
-// socket handlers
 io.on('connection', (socket) => {
   socket.on('join', (payload) => {
     const { id, name, icon, total = 0, spent = 0 } = payload || {};
@@ -150,21 +134,17 @@ io.on('connection', (socket) => {
       return;
     }
 
-    // immediate ban checks by id or name
     if (isBannedId(id) || isBannedName(name)) {
       socket.emit('banned', { reason: 'You are banned' });
       socket.disconnect(true);
       return;
     }
 
-    // ensure persistent user record exists
     if (!persistent.users[id]) {
       persistent.users[id] = { id, name, icon: icon || 'assets/images/mineral.png', total: Number(total)||0, spent: Number(spent)||0, isAdmin:false };
     } else {
-      // merge totals conservatively
       persistent.users[id].total = Math.max(persistent.users[id].total || 0, Number(total) || persistent.users[id].total || 0);
       persistent.users[id].spent = Math.max(persistent.users[id].spent || 0, Number(spent) || persistent.users[id].spent || 0);
-      // name change request
       if (name && name !== persistent.users[id].name) {
         if (nameInUse(name, id)) {
           socket.emit('nameTaken', { suggested: suggestName(name) });
@@ -176,13 +156,11 @@ io.on('connection', (socket) => {
       if (icon) persistent.users[id].icon = icon;
     }
 
-    // final name collision check
     if (nameInUse(persistent.users[id].name, id)) {
       socket.emit('nameTaken', { suggested: suggestName(persistent.users[id].name) });
       return;
     }
 
-    // record connection
     socketsById.set(socket.id, id);
     connected.set(id, { socketId: socket.id, lastSeen: Date.now() });
     socket.join('players');
@@ -200,24 +178,23 @@ io.on('connection', (socket) => {
     const text = String(msg.text || '').trim();
     if (!text) return;
 
-    // command handling
     if (text.startsWith('/')) {
       const parts = text.slice(1).split(/\s+/);
       const cmd = parts[0];
       const arg = parts.slice(1).join(' ').trim();
-      // /ban <identifier>  -> identifier can be name or id
+
+      // determine if user is admin by flag or by name === 'admin'
+      const isAdminNow = !!user.isAdmin || user.name === 'admin';
+
       if (cmd === 'ban') {
-        if (!user.isAdmin) { socket.emit('systemMsg', { text:'権限がありません' }); return; }
+        if (!isAdminNow) { socket.emit('systemMsg', { text:'権限がありません' }); return; }
         if (!arg) { socket.emit('systemMsg', { text:'対象を指定してください: /ban ニックネームかplayerId' }); return; }
 
-        // try find by name first
         let targetId = findUserIdByName(arg);
         if (!targetId && persistent.bans.ids.includes(arg)) {
-          // arg is already a banned id
           socket.emit('systemMsg', { text: `${arg} は既にバンされています` });
           return;
         }
-        // if no user found by name, treat arg as id
         if (!targetId) targetId = arg;
 
         const ok = banById(targetId, user.name);
@@ -232,9 +209,8 @@ io.on('connection', (socket) => {
         return;
       }
 
-      // /bro <identifier> -> unban by name or id
       if (cmd === 'bro') {
-        if (!user.isAdmin) { socket.emit('systemMsg', { text:'権限がありません' }); return; }
+        if (!isAdminNow) { socket.emit('systemMsg', { text:'権限がありません' }); return; }
         if (!arg) { socket.emit('systemMsg', { text:'対象を指定してください: /bro ニックネームかplayerId' }); return; }
 
         const unbanned = unbanByIdentifier(arg);
@@ -253,7 +229,6 @@ io.on('connection', (socket) => {
       return;
     }
 
-    // normal chat broadcast
     io.emit('chat', { name: user.name, icon: user.icon, text, ts: Date.now() });
   });
 
@@ -283,7 +258,6 @@ io.on('connection', (socket) => {
       socket.emit('buyResult', { ok:false, reason:'not_enough' });
       return;
     }
-    // server-side single-purchase enforcement: store ownedItems within user
     user.ownedItems = user.ownedItems || {};
     if (user.ownedItems[itemId]) {
       socket.emit('buyResult', { ok:false, reason:'already_owned' });
