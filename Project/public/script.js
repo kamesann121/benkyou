@@ -1,4 +1,4 @@
-// script.js — 統合版: タップ / チャット / インベントリ反映 & UI修正
+// public/script.js — タブ切替とInventory開閉の確実化を含む統合版
 (() => {
   function generateId(){ return Math.random().toString(36).slice(2,9); }
   function savePlayer(){ localStorage.setItem('playerId', playerId); localStorage.setItem('playerName', playerName); localStorage.setItem('playerIcon', playerIcon); localStorage.setItem('totalTaps', totalTaps); localStorage.setItem('spentTaps', spentTaps); }
@@ -50,13 +50,14 @@
   const previewOutput = document.getElementById('previewOutput');
   const previewCost = document.getElementById('previewCost');
 
-  const tabBtns = document.querySelectorAll('.tab-btn');
-  const tabs = document.querySelectorAll('.tab');
+  // tabs
+  const tabBtns = Array.from(document.querySelectorAll('.tab-btn'));
+  const tabs = Array.from(document.querySelectorAll('.tab'));
 
   // defaults
   const iconCandidates = ['assets/images/mineral.png','assets/images/icon2.png'];
 
-  // client-side itemDefinitions (100 items)
+  // item definitions (client fallback)
   const itemDefinitions = {
     item001: { id:'item001', title:'Ember Shard', desc:'+1 per click', price:58 },
     item002: { id:'item002', title:'Crystal Nib', desc:'+2 per click', price:66 },
@@ -302,14 +303,33 @@
     savePlayer();
   }
 
-  // tab switching
-  tabBtns.forEach(b => b.addEventListener('click', ()=> {
-    tabBtns.forEach(x=>x.classList.remove('active'));
-    tabs.forEach(t=>t.classList.remove('active'));
-    b.classList.add('active');
-    const tab = document.getElementById(b.dataset.tab);
-    if (tab) tab.classList.add('active');
-  }));
+  // TAB switching: robust handler (prevents default, works with keyboard too)
+  function showTab(tabId){
+    tabs.forEach(t => {
+      if (t.id === tabId) t.classList.add('active');
+      else t.classList.remove('active');
+    });
+    tabBtns.forEach(b => {
+      if (b.dataset.tab === tabId) b.classList.add('active');
+      else b.classList.remove('active');
+    });
+  }
+  tabBtns.forEach(btn => {
+    btn.addEventListener('click', (e) => {
+      e.preventDefault();
+      const target = btn.dataset.tab;
+      if (target) showTab(target);
+    });
+    // allow keyboard activation
+    btn.addEventListener('keydown', (e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); btn.click(); } });
+  });
+
+  // Open Inventory button: show Inventory tab and open modal
+  openInventoryBtn.addEventListener('click', () => {
+    showTab('inventoryTab');
+    inventoryModal.setAttribute('aria-hidden','false');
+    updateInventoryUI();
+  });
 
   // shop interactions
   shopList.addEventListener('click', (e) => {
@@ -332,7 +352,6 @@
   });
 
   // Inventory: open/close and rendering
-  document.getElementById('openInventoryBtn').addEventListener('click', ()=> { inventoryModal.setAttribute('aria-hidden','false'); updateInventoryUI(); });
   closeInventoryBtn.addEventListener('click', ()=> { inventoryModal.setAttribute('aria-hidden','true'); selectedInvItemId = null; invItemDetail.innerHTML = '選択してください'; });
 
   function updateInventoryUI(){
@@ -469,5 +488,6 @@
   updateInventoryUI();
   setInterval(savePlayer, 5000);
 
-  window._app = { localOwned, itemDefinitions, renderShop, updateInventoryUI, doTap };
+  // expose debug
+  window._app = { localOwned, itemDefinitions, renderShop, updateInventoryUI, doTap, showTab };
 })();
