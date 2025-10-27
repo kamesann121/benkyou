@@ -36,7 +36,7 @@
 
       <div class="mineral-area" id="mineralArea" tabindex="0">
         <img src="assets/images/mineral.png" id="mineralImg" alt="mineral" />
-        <button id="tapBtn" class="tap-btn">TAP</button>
+        <button id="tapBtn" class="tap-btn" aria-label="Tap">TAP</button>
       </div>
 
       <div class="stats">
@@ -56,29 +56,29 @@
           <input id="name" placeholder="名前(任意)" />
           <select id="iconSelect" title="アイコンを選択"></select>
           <input id="iconUpload" type="file" accept="image/*" />
-          <button id="setName" class="round-btn">Set</button>
+          <button id="setName" class="round-btn" type="button">Set</button>
         </div>
 
         <div class="tab-controls">
-          <button class="tab-btn active" data-tab="chatTab">Chat</button>
-          <button class="tab-btn" data-tab="inventoryTab">Inventory</button>
-          <button class="tab-btn" data-tab="presenceTab">Online</button>
+          <button class="tab-btn active" data-tab="chatTab" type="button">Chat</button>
+          <button class="tab-btn" data-tab="inventoryTab" type="button">Inventory</button>
+          <button class="tab-btn" data-tab="presenceTab" type="button">Online</button>
         </div>
       </div>
 
       <div class="panel-body">
         <div id="chatTab" class="tab active">
           <div class="messages" id="messages" role="log" aria-live="polite"></div>
-          <form id="chatForm" class="chat-form">
+          <form id="chatForm" class="chat-form" onsubmit="return false;">
             <input id="msg" autocomplete="off" placeholder="メッセージを入力" />
-            <button type="submit">送信</button>
+            <button id="chatSend" type="button">送信</button>
           </form>
         </div>
 
         <div id="inventoryTab" class="tab">
           <div class="inventory-header">
             <div>Gold: <strong id="invGold">0</strong></div>
-            <div><button id="openInventoryBtn">Open Inventory</button></div>
+            <div><button id="openInventoryBtn" type="button">Open Inventory</button></div>
           </div>
           <div class="inventory-list" id="inventoryList"></div>
         </div>
@@ -95,7 +95,6 @@
 
   <div id="toastContainer" aria-live="polite"></div>
 
-  <!-- Inventory Modal (unchanged structure) -->
   <div id="inventoryModal" class="modal" aria-hidden="true">
     <div class="modal-inner inventory-modal-inner">
       <h3>Inventory</h3>
@@ -108,9 +107,9 @@
           <h4>Selected Item</h4>
           <div id="invItemDetail" class="inv-detail">選択してください</div>
           <div class="inv-actions">
-            <button id="equipBtn">Equip</button>
-            <button id="addToFuseBtn">Add to Fuse</button>
-            <button id="sellBtn">Sell</button>
+            <button id="equipBtn" type="button">Equip</button>
+            <button id="addToFuseBtn" type="button">Add to Fuse</button>
+            <button id="sellBtn" type="button">Sell</button>
           </div>
 
           <h4 style="margin-top:12px">Fusion Queue (2 slots)</h4>
@@ -123,8 +122,8 @@
             <div>合体予想出力: <span id="previewOutput">—</span></div>
             <div>合体コスト: <strong id="previewCost">—</strong></div>
             <div style="margin-top:8px" class="fuse-actions">
-              <button id="doFuseBtn">Fuse</button>
-              <button id="clearFuseBtn">Clear</button>
+              <button id="doFuseBtn" type="button">Fuse</button>
+              <button id="clearFuseBtn" type="button">Clear</button>
             </div>
           </div>
 
@@ -132,7 +131,7 @@
       </div>
 
       <div style="margin-top:12px;text-align:right">
-        <button id="closeInventoryBtn">Close</button>
+        <button id="closeInventoryBtn" type="button">Close</button>
       </div>
     </div>
   </div>
