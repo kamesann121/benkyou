@@ -1,9 +1,9 @@
-// script.js — タブ修正 / 100アイテム定義 / 所持Gold表示 / Owned表示対応
+// script.js — 統合版: タップ / チャット / インベントリ反映 & UI修正
 (() => {
   function generateId(){ return Math.random().toString(36).slice(2,9); }
   function savePlayer(){ localStorage.setItem('playerId', playerId); localStorage.setItem('playerName', playerName); localStorage.setItem('playerIcon', playerIcon); localStorage.setItem('totalTaps', totalTaps); localStorage.setItem('spentTaps', spentTaps); }
 
-  // load local
+  // local state
   let playerId = localStorage.getItem('playerId') || generateId();
   let playerName = localStorage.getItem('playerName') || 'You';
   let playerIcon = localStorage.getItem('playerIcon') || 'assets/images/mineral.png';
@@ -24,6 +24,7 @@
   const nameInput = document.getElementById('name');
   const setNameBtn = document.getElementById('setName');
   const chatForm = document.getElementById('chatForm');
+  const chatSend = document.getElementById('chatSend');
   const msgInput = document.getElementById('msg');
   const rankList = document.getElementById('rankList');
   const presenceList = document.getElementById('presenceList');
@@ -49,14 +50,13 @@
   const previewOutput = document.getElementById('previewOutput');
   const previewCost = document.getElementById('previewCost');
 
-  // tab controls
   const tabBtns = document.querySelectorAll('.tab-btn');
   const tabs = document.querySelectorAll('.tab');
 
-  // default icons (icon1 removed)
+  // defaults
   const iconCandidates = ['assets/images/mineral.png','assets/images/icon2.png'];
 
-  // 100 個のアイテム定義（title, desc, price はクライアント表示用）
+  // client-side itemDefinitions (100 items)
   const itemDefinitions = {
     item001: { id:'item001', title:'Ember Shard', desc:'+1 per click', price:58 },
     item002: { id:'item002', title:'Crystal Nib', desc:'+2 per click', price:66 },
@@ -169,8 +169,10 @@
   let connectedUsers = [];
   let localOwned = {};
   let equippedSlots = {};
+  let selectedInvItemId = null;
+  let fuseQueue = [null,null];
 
-  // update UI numbers
+  // update displays
   function updateDisplays(){
     totalEl.textContent = totalTaps;
     spentEl.textContent = spentTaps;
@@ -182,14 +184,14 @@
   }
   updateDisplays();
 
-  // show toast
+  // toast
   function showToast(text, ms=1000){
     const t = document.createElement('div'); t.className='toast'; t.textContent = text; toastContainer.appendChild(t);
     requestAnimationFrame(()=> t.classList.add('show'));
     setTimeout(()=> { t.classList.remove('show'); setTimeout(()=> t.remove(),260); }, ms);
   }
 
-  // append message
+  // messages
   function appendMessage({ name, icon, text, me=false, sys=false }){
     if (sys) {
       const txt = (text||'').toLowerCase();
@@ -204,11 +206,11 @@
     messages.appendChild(row); messages.scrollTop = messages.scrollHeight;
   }
 
-  // presence & ranking render: show hand gold
+  // presence & ranking
   function renderPresence(list){
     connectedUsers = list || [];
     presenceList.innerHTML = '';
-    (connectedUsers).forEach(u=>{
+    connectedUsers.forEach(u=>{
       const hand = Math.max(0, (u.total||0)-(u.spent||0));
       const li = document.createElement('li');
       const im = document.createElement('img'); im.src = u.icon || 'assets/images/mineral.png'; im.style.width='32px'; im.style.height='32px'; im.style.borderRadius='6px';
@@ -216,8 +218,7 @@
       presenceList.appendChild(li);
     });
 
-    // ranking shows same live gold next to names
-    const arr = (connectedUsers).slice().sort((a,b)=> ((b.total||0)-(b.spent||0)) - ((a.total||0)-(a.spent||0)));
+    const arr = connectedUsers.slice().sort((a,b)=> ((b.total||0)-(b.spent||0)) - ((a.total||0)-(a.spent||0)));
     rankList.innerHTML='';
     arr.forEach(u=> {
       const hand = Math.max(0, (u.total||0)-(u.spent||0));
@@ -227,15 +228,16 @@
     });
   }
 
-  // populate icon select without icon1.png
+  // icon select
   function populateIconSelect(){
-    iconSelect.innerHTML=''; iconCandidates.forEach(src => { const o=document.createElement('option'); o.value=src; o.textContent=src.split('/').pop(); iconSelect.appendChild(o); });
+    iconSelect.innerHTML='';
+    iconCandidates.forEach(src => { const o=document.createElement('option'); o.value=src; o.textContent=src.split('/').pop(); iconSelect.appendChild(o); });
     if (playerIcon && playerIcon.startsWith('data:')) { const o=document.createElement('option'); o.value=playerIcon; o.textContent='Uploaded'; iconSelect.appendChild(o); iconSelect.value=playerIcon; }
     else { const exists = Array.from(iconSelect.options).some(o=>o.value===playerIcon); iconSelect.value = exists ? playerIcon : iconCandidates[0]; playerIcon = iconSelect.value; localStorage.setItem('playerIcon', playerIcon); }
   }
   populateIconSelect();
 
-  // render shop with names & Owned handling
+  // render shop
   function renderShop(){
     shopList.innerHTML = '';
     Object.keys(itemDefinitions).forEach(id => {
@@ -245,10 +247,10 @@
       const left = document.createElement('div');
       left.innerHTML = `<strong>${it.title}</strong><div class="price">Cost: ${it.price}</div><div style="font-size:13px;color:var(--muted)">${it.desc}</div>`;
       const actions = document.createElement('div'); actions.className='shop-actions';
-      const buy = document.createElement('button'); buy.className='buy-btn'; buy.dataset.id = id; buy.dataset.price = it.price;
+      const buy = document.createElement('button'); buy.className='buy-btn'; buy.dataset.id = id; buy.dataset.price = it.price; buy.type = 'button';
       if (owned) { buy.textContent = 'Owned'; buy.disabled = true; buy.style.opacity = '0.6'; }
       else { buy.textContent = 'Buy'; buy.disabled = false; }
-      const gift = document.createElement('button'); gift.className='gift-btn'; gift.dataset.id = id; gift.textContent='Gift';
+      const gift = document.createElement('button'); gift.className='gift-btn'; gift.dataset.id = id; gift.textContent='Gift'; gift.type = 'button';
       actions.appendChild(buy); actions.appendChild(gift);
       div.appendChild(left); div.appendChild(actions);
       shopList.appendChild(div);
@@ -256,7 +258,7 @@
   }
   renderShop();
 
-  // socket connect and handlers
+  // socket
   function connect(){
     socket = io();
     socket.on('connect', ()=> socket.emit('join', { id: playerId, name: playerName, icon: playerIcon, total: totalTaps, spent: spentTaps }) );
@@ -265,33 +267,42 @@
       playerId = id; playerName = user.name; playerIcon = user.icon; totalTaps = Number(user.total || totalTaps); spentTaps = Number(user.spent || spentTaps);
       localOwned = user.ownedItems || {};
       equippedSlots = user.equipped || {};
-      // server may provide authoritative itemDefs; merge with client defs (server wins)
-      if (itemDefs) {
-        Object.keys(itemDefs).forEach(k => itemDefinitions[k] = itemDefs[k]);
-      }
-      updateDisplays(); renderShop(); updateInventoryUI();
+      if (itemDefs) Object.assign(itemDefinitions, itemDefs);
+      updateAfterServerSync();
     });
 
     socket.on('presenceUpdate', (list) => renderPresence(list));
     socket.on('chat', (m) => appendMessage({ name:m.name, icon:m.icon, text:m.text, me:m.name===playerName }));
     socket.on('systemMsg', (m) => appendMessage({ name:'System', text: m.text || m, sys:true }));
+
     socket.on('buyResult', (res) => {
       if (!res.ok) appendMessage({ name:'Shop', text: res.reason ? `購入に失敗しました: ${res.reason}` : '購入に失敗しました', sys:true });
       else {
-        totalTaps = res.user.total; spentTaps = res.user.spent; localOwned = res.user.ownedItems || localOwned; updateDisplays(); renderShop(); updateInventoryUI();
+        totalTaps = res.user.total; spentTaps = res.user.spent; localOwned = res.user.ownedItems || localOwned; updateAfterServerSync();
       }
     });
+
     socket.on('fusionAck', (ack) => {
-      if (ack && ack.ok) { localOwned = ack.user && ack.user.ownedItems ? ack.user.ownedItems : localOwned; totalTaps = ack.user ? ack.user.total : totalTaps; spentTaps = ack.user ? ack.user.spent : spentTaps; updateDisplays(); updateInventoryUI(); renderShop(); appendMessage({ name:'System', text:`合体成功: ${ack.output.title}`, sys:true }); }
+      if (ack && ack.ok) { localOwned = ack.user && ack.user.ownedItems ? ack.user.ownedItems : localOwned; totalTaps = ack.user ? ack.user.total : totalTaps; spentTaps = ack.user ? ack.user.spent : spentTaps; updateAfterServerSync(); appendMessage({ name:'System', text:`合体成功: ${ack.output.title}`, sys:true }); }
       else if (ack && !ack.ok) appendMessage({ name:'System', text:`合体に失敗しました: ${ack.reason||''}`, sys:true });
     });
+
     socket.on('fusionPreview', (p) => { if (p) { previewOutput.textContent = p.outputTitle || '—'; previewCost.textContent = p.cost != null ? `${p.cost} Gold` : '—'; }});
-    socket.on('presenceUpdate', (list) => renderPresence(list));
+    socket.on('equipAck', (ack) => { if (ack && ack.ok) { equippedSlots = ack.equipped || equippedSlots; updateAfterServerSync(); }});
+    socket.on('equipUpdate', (data) => { if (data && data.playerId === playerId) { equippedSlots = data.equipped || equippedSlots; updateAfterServerSync(); }});
+
     socket.on('disconnect', ()=>{ /* suppressed */ });
   }
   connect();
 
-  // TAB switching fix: ensure clicking tab shows the tab
+  function updateAfterServerSync(){
+    updateDisplays();
+    renderShop();
+    updateInventoryUI();
+    savePlayer();
+  }
+
+  // tab switching
   tabBtns.forEach(b => b.addEventListener('click', ()=> {
     tabBtns.forEach(x=>x.classList.remove('active'));
     tabs.forEach(t=>t.classList.remove('active'));
@@ -300,7 +311,7 @@
     if (tab) tab.classList.add('active');
   }));
 
-  // shop interactions (buy & gift)
+  // shop interactions
   shopList.addEventListener('click', (e) => {
     const buyBtn = e.target.closest('button.buy-btn');
     const giftBtn = e.target.closest('button.gift-btn');
@@ -310,7 +321,7 @@
       if (localOwned[itemId]) { showToast('既に所有しています'); return; }
       if (gold < price) { appendMessage({ name:'Shop', text:'金が足りません', sys:true }); return; }
       if (socket && socket.connected) socket.emit('buy', { itemId, price });
-      else { localOwned[itemId] = true; spentTaps += price; savePlayer(); updateDisplays(); renderShop(); showToast('購入しました（ローカル）'); }
+      else { localOwned[itemId] = true; spentTaps += price; updateAfterServerSync(); showToast('購入しました（ローカル）'); }
     }
     if (giftBtn) {
       const itemId = giftBtn.dataset.id;
@@ -320,26 +331,143 @@
     }
   });
 
-  // Inventory UI functions (kept minimal)
+  // Inventory: open/close and rendering
+  document.getElementById('openInventoryBtn').addEventListener('click', ()=> { inventoryModal.setAttribute('aria-hidden','false'); updateInventoryUI(); });
+  closeInventoryBtn.addEventListener('click', ()=> { inventoryModal.setAttribute('aria-hidden','true'); selectedInvItemId = null; invItemDetail.innerHTML = '選択してください'; });
+
   function updateInventoryUI(){
-    invItemsList.innerHTML='';
+    invItemsList.innerHTML = '';
     const keys = Object.keys(localOwned || {});
-    if (keys.length === 0) { const li = document.createElement('li'); li.textContent = 'No items owned'; invItemsList.appendChild(li); return; }
+    if (keys.length === 0){ const li = document.createElement('li'); li.textContent = 'No items owned'; invItemsList.appendChild(li); return; }
     keys.forEach(id => {
       const def = itemDefinitions[id] || { title:id, desc:'' };
       const li = document.createElement('li'); li.dataset.id = id;
       const eq = Object.values(equippedSlots || {}).includes(id) ? ' (Equipped)' : '';
-      li.innerHTML = `<span><strong>${def.title||id}</strong><em style="color:var(--muted);font-size:12px">${eq}</em><div style="font-size:12px;color:var(--muted)">${def.desc||''}</div></span><span><button class="inv-select-btn" data-id="${id}">Select</button></span>`;
+      li.innerHTML = `<span><strong>${def.title||id}</strong><em style="color:var(--muted);font-size:12px">${eq}</em><div style="font-size:12px;color:var(--muted)">${def.desc||''}</div></span><span><button class="inv-select-btn" data-id="${id}" type="button">Select</button></span>`;
       invItemsList.appendChild(li);
     });
   }
 
-  // minimal remaining UI: inventory open/close, selection, fuse etc. (omitted here for brevity)
-  // ensure to re-run renderShop() and updateInventoryUI() after updates
+  invItemsList.addEventListener('click', (e)=> {
+    const btn = e.target.closest('.inv-select-btn'); if (!btn) return;
+    const id = btn.dataset.id; selectedInvItemId = id;
+    const def = itemDefinitions[id] || { title:id, desc:'' };
+    invItemDetail.innerHTML = `<strong>${def.title||id}</strong><div style="margin-top:6px;color:var(--muted)">${def.desc||''}</div><div style="margin-top:8px">ID: ${id}</div>`;
+    invItemsList.querySelectorAll('li').forEach(li=> li.classList.toggle('selected', li.dataset.id===id));
+  });
+
+  // equip (server-synced)
+  equipBtn.addEventListener('click', ()=> {
+    if (!selectedInvItemId) { showToast('アイテムを選んでください'); return; }
+    if (!socket || !socket.connected) { showToast('サーバー接続が必要です'); return; }
+    socket.emit('equip', { slot:'slot1', itemId: selectedInvItemId });
+  });
+
+  // add to fuse
+  addToFuseBtn.addEventListener('click', ()=> {
+    if (!selectedInvItemId) { showToast('アイテムを選んでください'); return; }
+    const idx = fuseQueue.indexOf(null);
+    if (idx === -1) { showToast('合体スロットが満杯です'); return; }
+    fuseQueue[idx] = selectedInvItemId; renderFuseSlots();
+    if (socket && socket.connected) socket.emit('fusionPreview', { itemAId: fuseQueue[0], itemBId: fuseQueue[1] });
+    else computeLocalPreview();
+  });
+
+  function computeLocalPreview(){
+    const [a,b] = fuseQueue;
+    if (!a || !b) { previewOutput.textContent='—'; previewCost.textContent='—'; return; }
+    const da = itemDefinitions[a], db = itemDefinitions[b];
+    const title = `${(da&&da.title?da.title.split(' ')[0]:a)}-${(db&&db.title?db.title.split(' ')[0]:b)} Fusion`;
+    const cost = Math.ceil(((Number(da.price||0) + Number(db.price||0)) * 1.2) + 100);
+    previewOutput.textContent = title;
+    previewCost.textContent = `${cost} Gold (est.)`;
+  }
+
+  // sell
+  sellBtn.addEventListener('click', ()=> {
+    if (!selectedInvItemId) { showToast('アイテムを選んでください'); return; }
+    const def = itemDefinitions[selectedInvItemId] || { price:0, title:selectedInvItemId };
+    const sale = Math.floor((def.price||0) * 0.5);
+    delete localOwned[selectedInvItemId];
+    totalTaps += sale; savePlayer(); updateAfterServerSync();
+    appendMessage({ name:'System', text:`${def.title||selectedInvItemId} を売却して ${sale} Gold を獲得しました`, sys:true });
+  });
+
+  // fuse slots
+  function renderFuseSlots(){
+    const slots = fuseSlots.querySelectorAll('.fuse-slot');
+    slots.forEach(s => {
+      const idx = Number(s.dataset.slot);
+      const id = fuseQueue[idx];
+      if (!id) s.textContent = 'Empty'; else s.textContent = (itemDefinitions[id] && itemDefinitions[id].title) ? itemDefinitions[id].title : id;
+    });
+    computeLocalPreview();
+  }
+  renderFuseSlots();
+
+  doFuseBtn.addEventListener('click', ()=> {
+    const [a,b] = fuseQueue;
+    if (!a || !b) { showToast('2つのアイテムをセットしてください'); return; }
+    if (!socket || !socket.connected) { showToast('サーバー接続が必要です'); return; }
+    socket.emit('fuse', { itemAId: a, itemBId: b });
+    fuseQueue = [null,null]; renderFuseSlots(); previewOutput.textContent='—'; previewCost.textContent='—';
+  });
+
+  clearFuseBtn.addEventListener('click', ()=> { fuseQueue = [null,null]; renderFuseSlots(); previewOutput.textContent='—'; previewCost.textContent='—'; });
+
+  // tap handling (ensure works)
+  function doTap(){
+    const now = Date.now(); if (now - lastClick <= 800) combo++; else combo = 1; lastClick = now;
+    let gain = 1 + Math.floor(combo/10);
+    if (localOwned['item010']) gain += 1;
+    totalTaps += gain; cpsCount++; if (!cpsInterval) cpsInterval = setInterval(()=>{ cpsEl.textContent = cpsCount; cpsCount=0; }, 1000);
+    updateDisplays(); animateMineral(); savePlayer();
+    if (socket && socket.connected) socket.emit('click', { delta: gain });
+  }
+  tapBtn.addEventListener('click', doTap);
+  tapBtn.addEventListener('touchstart', (e)=> { e.preventDefault(); doTap(); });
+
+  function animateMineral(){ if (mineralImg) { mineralImg.style.transform='scale(0.92) rotate(-6deg)'; setTimeout(()=> mineralImg.style.transform='',120); } }
+
+  // chat: prevent reload and send via socket
+  chatSend.addEventListener('click', ()=> {
+    const t = msgInput.value.trim(); if (!t) return;
+    if (socket && socket.connected) socket.emit('chat', { text: t });
+    else appendMessage({ name: playerName, icon: playerIcon, text: t, me:true });
+    msgInput.value = '';
+  });
+  chatForm.addEventListener('submit', (e) => { e.preventDefault(); chatSend.click(); });
+
+  // set name
+  setNameBtn.addEventListener('click', ()=> {
+    const v = nameInput.value.trim(); if (!v) return;
+    playerName = v; playerIcon = iconSelect.value || playerIcon; savePlayer(); populateIconSelect();
+    if (socket && socket.connected) socket.emit('changeName', { name: playerName });
+    nameInput.value = '';
+  });
+
+  // icon upload
+  iconUpload.addEventListener('change', (e)=> {
+    const f = e.target.files && e.target.files[0]; if (!f) return;
+    const fr = new FileReader(); fr.onload = ()=> { playerIcon = fr.result; localStorage.setItem('playerIcon', playerIcon); populateIconSelect(); if (iconSelect) iconSelect.value = playerIcon; if (socket && socket.connected) socket.emit('changeName', { name: playerName }); }; fr.readAsDataURL(f);
+  });
+
+  if (iconSelect) iconSelect.addEventListener('change', ()=> { playerIcon = iconSelect.value; localStorage.setItem('playerIcon', playerIcon); });
+
+  // shop toggle
+  if (shopToggle && shopBody) {
+    shopToggle.addEventListener('click', ()=> {
+      const hidden = shopBody.getAttribute('aria-hidden') === 'true';
+      shopBody.setAttribute('aria-hidden', hidden ? 'false' : 'true');
+      shopToggle.setAttribute('aria-expanded', hidden ? 'true' : 'false');
+    });
+  }
+
+  // initial render and save loop
   updateDisplays();
   renderShop();
   updateInventoryUI();
   setInterval(savePlayer, 5000);
 
-  window._app = { localOwned, itemDefinitions, renderShop, updateInventoryUI };
+  window._app = { localOwned, itemDefinitions, renderShop, updateInventoryUI, doTap };
 })();
